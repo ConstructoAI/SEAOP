@@ -1227,7 +1227,10 @@ def page_administration():
             mot_de_passe_admin = st.text_input("Mot de passe administrateur", type="password")
             
             if st.form_submit_button("🔐 Se connecter"):
-                if mot_de_passe_admin == "admin123":
+                # Récupérer le mot de passe admin depuis les variables d'environnement
+                admin_password = os.getenv('ADMIN_PASSWORD', 'admin123')  # Fallback pour développement local
+                
+                if mot_de_passe_admin == admin_password:
                     st.session_state.admin_connecte = True
                     st.success("✅ Connexion réussie!")
                     st.rerun()
