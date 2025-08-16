@@ -1335,15 +1335,37 @@ def formater_date_affichage(date_value) -> str:
     
     try:
         if isinstance(date_value, str):
-            # Si c'est déjà une chaîne, prendre les 10 premiers caractères
-            return date_value[:10]
+            # Si c'est déjà une chaîne, vérifier si elle est valide
+            if len(date_value) >= 10 and date_value[:4].isdigit():
+                return date_value[:10]
+            else:
+                return "N/A"
         elif isinstance(date_value, (int, float)):
             # Si c'est un timestamp, le convertir
             import datetime
+            
+            # Vérifier si le timestamp est raisonnable
+            if date_value <= 0:
+                return "N/A"
+            
+            # Si le timestamp semble être en millisecondes, le convertir
+            if date_value > 1e10:  # Plus grand que 1970 en secondes
+                date_value = date_value / 1000
+            
+            # Vérifier que le timestamp donne une date raisonnable (après 1990)
+            timestamp_1990 = datetime.datetime(1990, 1, 1).timestamp()
+            if date_value < timestamp_1990:
+                return "N/A"
+            
             return datetime.datetime.fromtimestamp(date_value).strftime('%Y-%m-%d')
         else:
             # Autre type, convertir en string et prendre les 10 premiers caractères
-            return str(date_value)[:10]
+            str_value = str(date_value)[:10]
+            # Vérifier si ça ressemble à une date
+            if len(str_value) >= 4 and str_value[:4].isdigit():
+                return str_value
+            else:
+                return "N/A"
     except:
         return "N/A"
 
