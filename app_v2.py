@@ -306,8 +306,194 @@ def init_database():
         )
     ''')
     
+    # Table des estimations (service d'estimation payant)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS estimations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            
+            -- Informations client
+            nom_client TEXT NOT NULL,
+            email_client TEXT NOT NULL,
+            telephone_client TEXT NOT NULL,
+            adresse_client TEXT,
+            
+            -- Détails de la demande
+            type_projet TEXT NOT NULL,
+            description_detaillee TEXT NOT NULL,
+            surface_approximative TEXT,
+            budget_approximatif TEXT,
+            delai_souhaite TEXT,
+            
+            -- Documents client (plans, croquis, photos)
+            plans_client TEXT,  -- Base64 des documents uploadés par le client
+            photos_client TEXT,  -- Photos de l'existant
+            documents_client TEXT,  -- Autres documents
+            
+            -- Informations estimation
+            prix_estimation REAL,  -- Prix du service d'estimation
+            statut TEXT DEFAULT 'recue',  -- 'recue', 'en_cours', 'terminee', 'envoyee', 'payee'
+            
+            -- Documents de réponse (estimation + facture)
+            estimation_document TEXT,  -- PDF/HTML de l'estimation fournie
+            facture_document TEXT,     -- Facture pour le service
+            documents_annexes TEXT,    -- Autres documents fournis
+            
+            -- Métadonnées
+            date_demande TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            date_debut_analyse TIMESTAMP,
+            date_estimation_terminee TIMESTAMP,
+            date_envoi_client TIMESTAMP,
+            date_paiement TIMESTAMP,
+            
+            -- Suivi
+            numero_reference TEXT UNIQUE,  -- Référence unique SEAOP-EST-XXXXX
+            notes_internes TEXT,  -- Notes pour l'estimateur
+            commentaires_client TEXT,  -- Retours du client
+            
+            -- Facturation
+            methode_paiement TEXT,  -- 'virement', 'cheque', 'carte', etc.
+            reference_paiement TEXT  -- Numéro de transaction
+        )
+    ''')
+    
+    # Index pour optimiser les performances des estimations
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_estimations_statut ON estimations(statut)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_estimations_client ON estimations(email_client)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_estimations_date ON estimations(date_demande)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_estimations_reference ON estimations(numero_reference)')
+    
     conn.commit()
     conn.close()
+
+def init_estimations_demo():
+    """Ajoute des données de démonstration pour les estimations si la table est vide"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Vérifier si la table estimations a des données
+        cursor.execute("SELECT COUNT(*) FROM estimations")
+        count = cursor.fetchone()[0]
+        
+        if count == 0:
+            # Ajouter des estimations de démonstration
+            estimations_demo = [
+                {
+                    'nom_client': 'Marie Dubois',
+                    'email_client': 'marie.dubois@exemple.com',
+                    'telephone_client': '514-555-1234',
+                    'adresse_client': '123 Rue Saint-Denis, Montréal, QC H2X 1K1',
+                    'type_projet': 'Rénovation cuisine',
+                    'description_detaillee': '''Estimation demandée pour rénovation complète de cuisine.
+                    
+Détails de la demande:
+- Cuisine actuelle: 12x10 pieds
+- Démolition partielle (garder la plomberie existante)
+- Nouvelles armoires en bois
+- Comptoir en granite ou quartz
+- Plancher en céramique
+- Électroménagers à remplacer (lave-vaisselle, cuisinière, réfrigérateur)
+- Peinture complète
+                    
+Contraintes:
+- Budget approximatif: 25 000$ - 35 000$
+- Délai souhaité: 2-3 mois
+- Disponibilité: weekends pour visites
+                    
+J'aimerais une estimation détaillée avec breakdown des coûts par poste.''',
+                    'surface_approximative': '120 pi²',
+                    'budget_approximatif': '25 000$ - 35 000$',
+                    'delai_souhaite': '2-3 mois',
+                    'prix_estimation': 150.00,
+                    'statut': 'recue',
+                    'numero_reference': 'SEAOP-EST-20240316-001'
+                },
+                {
+                    'nom_client': 'Pierre Gagnon',
+                    'email_client': 'p.gagnon@exemple.com',
+                    'telephone_client': '450-555-5678',
+                    'adresse_client': '456 Boulevard Taschereau, Longueuil, QC J4K 2V8',
+                    'type_projet': 'Agrandissement maison',
+                    'description_detaillee': '''Demande d'estimation pour agrandissement de maison unifamiliale.
+                    
+Projet envisagé:
+- Agrandissement arrière: 16x20 pieds
+- 2 étages (rez-de-chaussée + étage)
+- Rez-de-chaussée: salon familial + salle d'eau
+- Étage: 2 chambres + salle de bain complète
+- Raccordement au système existant (plomberie, électricité, chauffage)
+- Finition complète intérieure/extérieure
+                    
+Spécifications souhaitées:
+- Fondation en béton
+- Structure bois
+- Revêtement extérieur assorti à l'existant
+- Fenêtres double vitrage
+- Isolation haute performance
+                    
+Budget approximatif: 80 000$ - 120 000$
+Délai flexible: 4-6 mois''',
+                    'surface_approximative': '640 pi² (320 pi² x 2 étages)',
+                    'budget_approximatif': '80 000$ - 120 000$',
+                    'delai_souhaite': '4-6 mois',
+                    'prix_estimation': 300.00,
+                    'statut': 'en_cours',
+                    'numero_reference': 'SEAOP-EST-20240315-002',
+                    'notes_internes': 'Projet complexe - nécessite vérification zonage municipal'
+                }
+            ]
+            
+            # Insérer les données de démonstration
+            for estimation in estimations_demo:
+                cursor.execute('''
+                    INSERT INTO estimations (
+                        nom_client, email_client, telephone_client, adresse_client,
+                        type_projet, description_detaillee, surface_approximative,
+                        budget_approximatif, delai_souhaite, prix_estimation,
+                        statut, numero_reference, notes_internes
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    estimation['nom_client'], estimation['email_client'], 
+                    estimation['telephone_client'], estimation.get('adresse_client'),
+                    estimation['type_projet'], estimation['description_detaillee'],
+                    estimation['surface_approximative'], estimation['budget_approximatif'],
+                    estimation['delai_souhaite'], estimation['prix_estimation'],
+                    estimation['statut'], estimation['numero_reference'],
+                    estimation.get('notes_internes')
+                ))
+            
+            # Ajouter des notifications pour les nouvelles estimations
+            cursor.execute('''
+                INSERT INTO notifications (
+                    utilisateur_type, utilisateur_id, type_notification,
+                    titre, message, lien_id
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                'admin', 0, 'nouvelle_estimation',
+                'Nouvelle demande d\'estimation',
+                'Marie Dubois a demandé une estimation pour une rénovation de cuisine',
+                1
+            ))
+            
+            cursor.execute('''
+                INSERT INTO notifications (
+                    utilisateur_type, utilisateur_id, type_notification,
+                    titre, message, lien_id
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                'admin', 0, 'nouvelle_estimation',
+                'Nouvelle demande d\'estimation',
+                'Pierre Gagnon a demandé une estimation pour un agrandissement',
+                2
+            ))
+            
+            conn.commit()
+            
+    except Exception as e:
+        print(f"Erreur lors de l'initialisation des estimations de démonstration: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
 
 def hash_password(password: str) -> str:
     """Hash un mot de passe avec SHA-256"""
@@ -1705,6 +1891,7 @@ def main():
     # Migration automatique et initialisation
     check_and_migrate_database()
     init_database()
+    init_estimations_demo()
     
     # Header principal
     st.markdown("""
