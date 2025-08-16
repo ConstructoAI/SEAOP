@@ -1278,11 +1278,13 @@ def get_mes_projets(email: str) -> List[Dict]:
         projets.append({
             'id': row[0], 'nom': row[1], 'email': row[2], 'telephone': row[3],
             'code_postal': row[4], 'type_projet': row[5], 'description': row[6],
-            'budget': row[7], 'delai_realisation': row[8], 'photos': row[9],
-            'plans': row[10], 'documents': row[11], 'date_creation': row[12],
-            'statut': row[13], 'numero_reference': row[14],
-            'visible_entrepreneurs': row[15], 'accepte_soumissions': row[16],
-            'nb_soumissions': row[17], 'nb_acceptees': row[18]
+            'budget': row[7], 'delai_realisation': row[8], 
+            'date_limite_soumissions': row[9], 'date_debut_souhaite': row[10], 'niveau_urgence': row[11],
+            'photos': row[12], 'plans': row[13], 'documents': row[14], 
+            'date_creation': row[15], 'statut': row[16], 'numero_reference': row[17],
+            'visible_entrepreneurs': row[18], 'accepte_soumissions': row[19],
+            'nb_soumissions': int(row[20]) if row[20] is not None else 0, 
+            'nb_acceptees': int(row[21]) if row[21] is not None else 0
         })
     
     conn.close()
