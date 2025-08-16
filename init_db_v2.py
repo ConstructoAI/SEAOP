@@ -9,7 +9,7 @@ DATA_DIR = os.getenv('DATA_DIR', '/opt/render/project/data')
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR, exist_ok=True)
 
-DATABASE_PATH = os.path.join(DATA_DIR, DATABASE_PATH)
+DATABASE_PATH = os.path.join(DATA_DIR, 'seaop.db')
 
 def hash_password(password: str) -> str:
     """Hash un mot de passe avec SHA-256"""
@@ -44,6 +44,9 @@ def init_database_with_soumissions():
             description TEXT NOT NULL,
             budget TEXT NOT NULL,
             delai_realisation TEXT NOT NULL,
+            date_limite_soumissions DATE,  -- Nouveau: date limite pour recevoir les soumissions
+            date_debut_souhaite DATE,      -- Nouveau: date de début souhaitée des travaux
+            niveau_urgence TEXT DEFAULT 'normal',  -- Nouveau: 'faible', 'normal', 'eleve', 'critique'
             photos TEXT,
             plans TEXT,  -- Nouveau: stockage des plans/documents
             documents TEXT,  -- Nouveau: autres documents
@@ -256,6 +259,9 @@ def init_database_with_soumissions():
             - Animaux dans la maison (2 chats)''',
             'budget': '30 000$ - 50 000$',
             'delai_realisation': 'Dans 2-3 mois',
+            'date_limite_soumissions': '2024-04-15',
+            'date_debut_souhaite': '2024-05-01',
+            'niveau_urgence': 'normal',
             'numero_reference': 'SEAOP-20240301-ABC12345'
         },
         {
@@ -287,6 +293,9 @@ def init_database_with_soumissions():
             - 4 évents de plomberie''',
             'budget': 'Plus de 50 000$',
             'delai_realisation': 'Dès que possible',
+            'date_limite_soumissions': '2024-03-20',
+            'date_debut_souhaite': '2024-03-25',
+            'niveau_urgence': 'critique',
             'numero_reference': 'SEAOP-20240302-DEF67890'
         },
         {
@@ -323,6 +332,9 @@ def init_database_with_soumissions():
             - Éclairage sur gradateur''',
             'budget': '15 000$ - 30 000$',
             'delai_realisation': 'Dans 1 mois',
+            'date_limite_soumissions': '2024-04-01',
+            'date_debut_souhaite': '2024-04-15',
+            'niveau_urgence': 'eleve',
             'numero_reference': 'SEAOP-20240303-GHI23456'
         }
     ]
@@ -331,11 +343,13 @@ def init_database_with_soumissions():
     for lead in leads_demo:
         cursor.execute('''
             INSERT INTO leads (nom, email, telephone, code_postal, type_projet, 
-                              description, budget, delai_realisation, numero_reference)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              description, budget, delai_realisation, 
+                              date_limite_soumissions, date_debut_souhaite, niveau_urgence, numero_reference)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (lead['nom'], lead['email'], lead['telephone'], lead['code_postal'], 
               lead['type_projet'], lead['description'], lead['budget'], 
-              lead['delai_realisation'], lead['numero_reference']))
+              lead['delai_realisation'], lead['date_limite_soumissions'], 
+              lead['date_debut_souhaite'], lead['niveau_urgence'], lead['numero_reference']))
     
     # Créer des soumissions de démonstration
     soumissions_demo = [

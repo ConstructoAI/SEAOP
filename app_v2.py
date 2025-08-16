@@ -51,6 +51,9 @@ class Lead:
     description: str = ""
     budget: str = ""
     delai_realisation: str = ""
+    date_limite_soumissions: Optional[str] = None
+    date_debut_souhaite: Optional[str] = None
+    niveau_urgence: str = "normal"
     photos: Optional[str] = None
     plans: Optional[str] = None
     documents: Optional[str] = None
@@ -116,6 +119,9 @@ def init_database():
             description TEXT NOT NULL,
             budget TEXT NOT NULL,
             delai_realisation TEXT NOT NULL,
+            date_limite_soumissions DATE,
+            date_debut_souhaite DATE,
+            niveau_urgence TEXT DEFAULT 'normal',
             photos TEXT,
             plans TEXT,
             documents TEXT,
@@ -224,6 +230,21 @@ def init_database():
         )
     ''')
     
+    # Table des notifications
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            utilisateur_type TEXT NOT NULL,
+            utilisateur_id INTEGER NOT NULL,
+            type_notification TEXT NOT NULL,
+            titre TEXT NOT NULL,
+            message TEXT NOT NULL,
+            lien_id INTEGER,
+            lu BOOLEAN DEFAULT 0,
+            date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
@@ -260,10 +281,14 @@ def sauvegarder_lead(lead: Lead) -> str:
     
     cursor.execute('''
         INSERT INTO leads (nom, email, telephone, code_postal, type_projet, 
-                          description, budget, delai_realisation, photos, plans, documents, numero_reference)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          description, budget, delai_realisation, 
+                          date_limite_soumissions, date_debut_souhaite, niveau_urgence,
+                          photos, plans, documents, numero_reference)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (lead.nom, lead.email, lead.telephone, lead.code_postal, lead.type_projet,
-          lead.description, lead.budget, lead.delai_realisation, lead.photos, lead.plans, lead.documents, numero_ref))
+          lead.description, lead.budget, lead.delai_realisation,
+          lead.date_limite_soumissions, lead.date_debut_souhaite, lead.niveau_urgence,
+          lead.photos, lead.plans, lead.documents, numero_ref))
     
     conn.commit()
     conn.close()
@@ -295,7 +320,7 @@ def authentifier_entrepreneur(email: str, mot_de_passe: str) -> Optional[Entrepr
     return None
 
 def get_projets_disponibles() -> List[Dict]:
-    """Récupère tous les projets disponibles pour soumission"""
+    """Récupère tous les projets disponibles pour soumission avec informations d'urgence"""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
@@ -304,19 +329,38 @@ def get_projets_disponibles() -> List[Dict]:
                (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id) as nb_soumissions
         FROM leads l
         WHERE l.visible_entrepreneurs = 1 AND l.accepte_soumissions = 1
-        ORDER BY l.date_creation DESC
+        ORDER BY 
+            CASE l.niveau_urgence 
+                WHEN 'critique' THEN 1 
+                WHEN 'eleve' THEN 2 
+                WHEN 'normal' THEN 3 
+                WHEN 'faible' THEN 4 
+            END,
+            l.date_limite_soumissions ASC,
+            l.date_creation DESC
     ''')
     
     projets = []
     for row in cursor.fetchall():
-        projets.append({
+        projet = {
             'id': row[0], 'nom': row[1], 'email': row[2], 'telephone': row[3],
             'code_postal': row[4], 'type_projet': row[5], 'description': row[6],
             'budget': row[7], 'delai_realisation': row[8], 'photos': row[9],
             'plans': row[10], 'documents': row[11], 'date_creation': row[12],
             'statut': row[13], 'numero_reference': row[14],
-            'nb_soumissions': row[17] if len(row) > 17 else 0
-        })
+            'visible_entrepreneurs': row[15], 'accepte_soumissions': row[16],
+            'date_limite_soumissions': row[17], 'date_debut_souhaite': row[18],
+            'niveau_urgence': row[19], 'nb_soumissions': row[20]
+        }
+        
+        # Calculer les jours restants
+        projet['jours_restants_soumissions'] = calculer_jours_restants(projet['date_limite_soumissions'])
+        projet['jours_restants_debut'] = calculer_jours_restants(projet['date_debut_souhaite'])
+        
+        # Mettre à jour l'urgence automatiquement
+        mettre_a_jour_urgence_projet(projet['id'])
+        
+        projets.append(projet)
     
     conn.close()
     return projets
@@ -1329,8 +1373,21 @@ def page_accueil():
     
     if projets:
         for projet in projets:
+            # Obtenir les informations d'urgence
+            icone_urgence, couleur_urgence, libelle_urgence = get_couleur_urgence(projet['niveau_urgence'])
+            jours_min = min(projet['jours_restants_soumissions'], projet['jours_restants_debut'])
+            message_urgence = get_message_urgence(projet['niveau_urgence'], jours_min)
+            
             with st.container():
-                col1, col2, col3 = st.columns([3, 1, 1])
+                # Afficher un badge d'urgence visible
+                if projet['niveau_urgence'] in ['critique', 'eleve']:
+                    st.markdown(f"""
+                        <div style="background-color: {couleur_urgence}; color: white; padding: 8px; border-radius: 4px; margin-bottom: 10px; text-align: center; font-weight: bold;">
+                            {icone_urgence} {message_urgence}
+                        </div>
+                    """, unsafe_allow_html=True)
+                
+                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
                 
                 with col1:
                     st.markdown(f"**{projet['type_projet']}** - {projet['code_postal']}")
@@ -1341,6 +1398,15 @@ def page_accueil():
                 
                 with col3:
                     st.caption(f"📅 {projet['date_creation'][:10]}")
+                
+                with col4:
+                    # Indicateur d'urgence compact
+                    st.markdown(f"""
+                        <div style="text-align: center;">
+                            <span style="font-size: 24px;">{icone_urgence}</span><br>
+                            <small style="color: {couleur_urgence}; font-weight: bold;">{libelle_urgence}</small>
+                        </div>
+                    """, unsafe_allow_html=True)
                 
                 st.markdown("---")
     else:
@@ -1390,6 +1456,18 @@ def page_nouveau_projet():
                 ["", "Dès que possible", "Dans 1 mois", "Dans 2-3 mois", 
                  "Dans 3-6 mois", "Plus de 6 mois", "Flexible"]
             )
+            
+            niveau_urgence = st.selectbox(
+                "Niveau d'urgence",
+                ["normal", "faible", "eleve", "critique"],
+                format_func=lambda x: {
+                    'faible': '🟢 Faible - Pas pressé',
+                    'normal': '🟡 Normal - Dans les temps',
+                    'eleve': '🟠 Élevé - Assez urgent',
+                    'critique': '🔴 Critique - Très urgent'
+                }[x],
+                help="Indiquez le niveau d'urgence de votre projet"
+            )
         
         description = st.text_area(
             "Description détaillée du projet *",
@@ -1402,6 +1480,41 @@ def page_nouveau_projet():
 - Etc.""",
             height=200
         )
+        
+        # Délais et échéances
+        st.markdown("### ⏰ Délais et échéances")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            date_limite_soumissions = st.date_input(
+                "Date limite pour recevoir les soumissions",
+                value=datetime.date.today() + datetime.timedelta(days=14),
+                min_value=datetime.date.today() + datetime.timedelta(days=1),
+                help="Date après laquelle aucune nouvelle soumission ne sera acceptée"
+            )
+        
+        with col2:
+            date_debut_souhaite = st.date_input(
+                "Date de début souhaitée des travaux",
+                value=datetime.date.today() + datetime.timedelta(days=30),
+                min_value=datetime.date.today() + datetime.timedelta(days=1),
+                help="Date à laquelle vous souhaitez que les travaux commencent"
+            )
+        
+        # Afficher un aperçu de l'urgence basé sur les dates sélectionnées
+        if date_limite_soumissions and date_debut_souhaite:
+            urgence_calculee = determiner_niveau_urgence_automatique(
+                str(date_limite_soumissions), 
+                str(date_debut_souhaite)
+            )
+            icone_calc, couleur_calc, libelle_calc = get_couleur_urgence(urgence_calculee)
+            
+            st.info(f"""
+                **Urgence calculée automatiquement :** {icone_calc} {libelle_calc}
+                
+                Basé sur vos dates, le système recommande un niveau d'urgence **{libelle_calc.lower()}**.
+                Vous pouvez ajuster manuellement ci-dessus si nécessaire.
+            """)
         
         # Upload de fichiers
         st.markdown("### 📎 Documents et plans")
@@ -1520,6 +1633,9 @@ def page_nouveau_projet():
                     description=description,
                     budget=budget,
                     delai_realisation=delai_realisation,
+                    date_limite_soumissions=str(date_limite_soumissions),
+                    date_debut_souhaite=str(date_debut_souhaite),
+                    niveau_urgence=niveau_urgence,
                     photos=photos_data,
                     plans=plans_data,
                     documents=documents_data,
@@ -1563,7 +1679,7 @@ def page_mes_projets():
         # Afficher notifications si client connecté
         if 'client_email' in st.session_state:
             # Utiliser l'ID du premier projet comme référence client (pas optimal mais fonctionnel)
-            projets = get_projets_par_email(st.session_state.client_email)
+            projets = get_mes_projets(st.session_state.client_email)
             if projets:
                 client_id = projets[0]['id']
                 notifs_non_lues = count_notifications_non_lues('client', client_id)
@@ -1977,7 +2093,7 @@ def page_chat():
     # Marquer les messages comme lus
     if type_utilisateur == 'client':
         # Le client lit les messages de l'entrepreneur
-        projet = get_projets_par_email("dummy")[0] if get_projets_par_email("dummy") else None
+        projet = get_mes_projets("dummy")[0] if get_mes_projets("dummy") else None
         if projet:
             marquer_messages_lus(lead_id, entrepreneur_id, projet['id'])
     else:
@@ -2959,6 +3075,199 @@ def page_administration():
             conn.close()
             
             st.dataframe(df_soumissions, use_container_width=True)
+
+# ================== SYSTÈME DE DÉLAIS/URGENCE ==================
+
+def calculer_jours_restants(date_limite: str) -> int:
+    """Calcule le nombre de jours restants jusqu'à une date limite"""
+    if not date_limite:
+        return 999  # Pas de limite définie
+    
+    try:
+        date_limite_obj = datetime.datetime.strptime(date_limite, '%Y-%m-%d').date()
+        aujourd_hui = datetime.date.today()
+        jours_restants = (date_limite_obj - aujourd_hui).days
+        return jours_restants
+    except:
+        return 999
+
+def determiner_niveau_urgence_automatique(date_limite_soumissions: str, date_debut_souhaite: str) -> str:
+    """Détermine automatiquement le niveau d'urgence basé sur les délais"""
+    jours_soumissions = calculer_jours_restants(date_limite_soumissions)
+    jours_debut = calculer_jours_restants(date_debut_souhaite)
+    
+    # Urgence basée sur les délais les plus courts
+    jours_min = min(jours_soumissions, jours_debut)
+    
+    if jours_min < 0:
+        return 'critique'  # Échéance dépassée
+    elif jours_min <= 3:
+        return 'critique'  # Moins de 3 jours
+    elif jours_min <= 7:
+        return 'eleve'     # Moins d'une semaine
+    elif jours_min <= 14:
+        return 'normal'    # Moins de 2 semaines
+    else:
+        return 'faible'    # Plus de 2 semaines
+
+def get_couleur_urgence(niveau_urgence: str) -> tuple:
+    """Retourne la couleur et l'icône pour un niveau d'urgence"""
+    couleurs = {
+        'faible': ('🟢', '#28a745', 'Faible'),
+        'normal': ('🟡', '#ffc107', 'Normal'),
+        'eleve': ('🟠', '#fd7e14', 'Élevé'),
+        'critique': ('🔴', '#dc3545', 'Critique')
+    }
+    return couleurs.get(niveau_urgence, couleurs['normal'])
+
+def get_message_urgence(niveau_urgence: str, jours_restants: int) -> str:
+    """Génère un message d'urgence approprié"""
+    if niveau_urgence == 'critique':
+        if jours_restants < 0:
+            return f"⚠️ ÉCHÉANCE DÉPASSÉE de {abs(jours_restants)} jour(s) !"
+        else:
+            return f"🚨 URGENT - Plus que {jours_restants} jour(s) !"
+    elif niveau_urgence == 'eleve':
+        return f"⚡ PRIORITAIRE - {jours_restants} jour(s) restant(s)"
+    elif niveau_urgence == 'normal':
+        return f"📅 {jours_restants} jour(s) restant(s)"
+    else:
+        return f"✅ {jours_restants} jour(s) - Délai confortable"
+
+def mettre_a_jour_urgence_projet(projet_id: int):
+    """Met à jour automatiquement le niveau d'urgence d'un projet"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Récupérer les dates du projet
+    cursor.execute('''
+        SELECT date_limite_soumissions, date_debut_souhaite, niveau_urgence
+        FROM leads WHERE id = ?
+    ''', (projet_id,))
+    
+    result = cursor.fetchone()
+    if result:
+        date_limite_soumissions, date_debut_souhaite, niveau_actuel = result
+        
+        # Calculer le nouveau niveau d'urgence
+        nouveau_niveau = determiner_niveau_urgence_automatique(date_limite_soumissions, date_debut_souhaite)
+        
+        # Mettre à jour seulement si le niveau a changé
+        if nouveau_niveau != niveau_actuel:
+            cursor.execute('''
+                UPDATE leads SET niveau_urgence = ? WHERE id = ?
+            ''', (nouveau_niveau, projet_id))
+            conn.commit()
+            
+            # Créer une notification si l'urgence augmente
+            if niveau_actuel in ['faible', 'normal'] and nouveau_niveau in ['eleve', 'critique']:
+                notifier_urgence_projet(projet_id, nouveau_niveau)
+    
+    conn.close()
+
+def notifier_urgence_projet(projet_id: int, niveau_urgence: str):
+    """Crée des notifications d'urgence pour un projet"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Récupérer les infos du projet
+    cursor.execute('''
+        SELECT nom, email, type_projet, numero_reference, date_limite_soumissions
+        FROM leads WHERE id = ?
+    ''', (projet_id,))
+    
+    projet = cursor.fetchone()
+    if not projet:
+        conn.close()
+        return
+    
+    nom_client, email_client, type_projet, numero_ref, date_limite = projet
+    jours_restants = calculer_jours_restants(date_limite)
+    
+    # Message selon le niveau d'urgence
+    if niveau_urgence == 'critique':
+        titre = f"🚨 URGENT - Projet {numero_ref}"
+        message = f"Le projet '{type_projet}' arrive à échéance dans {jours_restants} jour(s) !"
+    else:
+        titre = f"⚡ PRIORITAIRE - Projet {numero_ref}"
+        message = f"Le projet '{type_projet}' nécessite une attention prioritaire"
+    
+    # Notifier le client
+    cursor.execute('''
+        INSERT INTO notifications (utilisateur_type, utilisateur_id, type_notification, 
+                                 titre, message, lien_id)
+        VALUES ('client', ?, 'urgence_projet', ?, ?, ?)
+    ''', (projet_id, titre, message, projet_id))
+    
+    # Notifier tous les entrepreneurs qui ont soumissionné
+    cursor.execute('''
+        SELECT DISTINCT entrepreneur_id FROM soumissions WHERE lead_id = ?
+    ''', (projet_id,))
+    
+    entrepreneurs = cursor.fetchall()
+    for (entrepreneur_id,) in entrepreneurs:
+        cursor.execute('''
+            INSERT INTO notifications (utilisateur_type, utilisateur_id, type_notification, 
+                                     titre, message, lien_id)
+            VALUES ('entrepreneur', ?, 'urgence_projet', ?, ?, ?)
+        ''', (entrepreneur_id, titre, f"Projet urgent : {message}", projet_id))
+    
+    conn.commit()
+    conn.close()
+
+def get_projets_par_urgence() -> Dict[str, List[Dict]]:
+    """Récupère tous les projets groupés par niveau d'urgence"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT l.*, 
+               (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id) as nb_soumissions,
+               (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id AND s.statut = 'acceptee') as nb_acceptees
+        FROM leads l
+        WHERE l.visible_entrepreneurs = 1 AND l.accepte_soumissions = 1
+        ORDER BY 
+            CASE l.niveau_urgence 
+                WHEN 'critique' THEN 1 
+                WHEN 'eleve' THEN 2 
+                WHEN 'normal' THEN 3 
+                WHEN 'faible' THEN 4 
+            END,
+            l.date_limite_soumissions ASC
+    ''')
+    
+    projets_par_urgence = {
+        'critique': [],
+        'eleve': [],
+        'normal': [],
+        'faible': []
+    }
+    
+    for row in cursor.fetchall():
+        projet = {
+            'id': row[0], 'nom': row[1], 'email': row[2], 'telephone': row[3],
+            'code_postal': row[4], 'type_projet': row[5], 'description': row[6],
+            'budget': row[7], 'delai_realisation': row[8], 'photos': row[9],
+            'plans': row[10], 'documents': row[11], 'date_creation': row[12],
+            'statut': row[13], 'numero_reference': row[14],
+            'visible_entrepreneurs': row[15], 'accepte_soumissions': row[16],
+            'date_limite_soumissions': row[17], 'date_debut_souhaite': row[18],
+            'niveau_urgence': row[19], 'nb_soumissions': row[20], 'nb_acceptees': row[21]
+        }
+        
+        # Calculer les jours restants
+        projet['jours_restants_soumissions'] = calculer_jours_restants(projet['date_limite_soumissions'])
+        projet['jours_restants_debut'] = calculer_jours_restants(projet['date_debut_souhaite'])
+        
+        # Mettre à jour l'urgence automatiquement
+        mettre_a_jour_urgence_projet(projet['id'])
+        
+        niveau = projet['niveau_urgence']
+        if niveau in projets_par_urgence:
+            projets_par_urgence[niveau].append(projet)
+    
+    conn.close()
+    return projets_par_urgence
 
 if __name__ == "__main__":
     main()
