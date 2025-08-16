@@ -87,11 +87,15 @@ echo NAVIGATION SEAOP:
 echo - Accueil: Presentation du systeme
 echo - Publier un appel d'offres: Creation d'appels d'offres
 echo - Mes appels d'offres: Consulter soumissions recues
-echo - Espace soumissionnaires: Dashboard fournisseurs
+echo - Espace Entrepreneurs: Dashboard entrepreneurs certifies
+echo - Service d'estimation: Demandes d'estimation professionnelles
 echo - Administration: Panel administrateur
 echo.
 echo Fermez cette fenetre pour arreter SEAOP
 echo.
+echo Ouverture du navigateur dans 3 secondes...
+timeout /t 3 /nobreak >nul
+start http://localhost:8501
 
 %PYTHON_CMD% -m streamlit run app_v2.py
 

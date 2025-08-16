@@ -406,12 +406,12 @@ def get_projets_disponibles() -> List[Dict]:
         projet = {
             'id': row[0], 'nom': row[1], 'email': row[2], 'telephone': row[3],
             'code_postal': row[4], 'type_projet': row[5], 'description': row[6],
-            'budget': row[7], 'delai_realisation': row[8], 'photos': row[9],
-            'plans': row[10], 'documents': row[11], 'date_creation': row[12],
-            'statut': row[13], 'numero_reference': row[14],
-            'visible_entrepreneurs': row[15], 'accepte_soumissions': row[16],
-            'date_limite_soumissions': row[17], 'date_debut_souhaite': row[18],
-            'niveau_urgence': row[19], 'nb_soumissions': row[20]
+            'budget': row[7], 'delai_realisation': row[8], 
+            'date_limite_soumissions': row[9], 'date_debut_souhaite': row[10],
+            'niveau_urgence': row[11], 'photos': row[12], 'plans': row[13], 
+            'documents': row[14], 'date_creation': row[15], 'statut': row[16],
+            'numero_reference': row[17], 'visible_entrepreneurs': row[18], 
+            'accepte_soumissions': row[19], 'nb_soumissions': row[20]
         }
         
         # Calculer les jours restants
@@ -1033,6 +1033,373 @@ def get_stats_admin() -> Dict:
         'evolution_soumissions': evolution_soumissions
     }
 
+# === FONCTIONS POUR SERVICE D'ESTIMATION ===
+
+def creer_demande_estimation(estimation_data: Dict) -> bool:
+    """Crée une nouvelle demande d'estimation"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Générer un numéro de référence unique
+        numero_reference = f"SEAOP-EST-{datetime.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        
+        cursor.execute('''
+            INSERT INTO estimations (
+                nom_client, email_client, telephone_client, adresse_client,
+                type_projet, description_detaillee, surface_approximative,
+                budget_approximatif, delai_souhaite, plans_client, photos_client,
+                documents_client, prix_estimation, numero_reference
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            estimation_data['nom_client'],
+            estimation_data['email_client'],
+            estimation_data['telephone_client'],
+            estimation_data.get('adresse_client', ''),
+            estimation_data['type_projet'],
+            estimation_data['description_detaillee'],
+            estimation_data.get('surface_approximative', ''),
+            estimation_data.get('budget_approximatif', ''),
+            estimation_data.get('delai_souhaite', ''),
+            estimation_data.get('plans_client', ''),
+            estimation_data.get('photos_client', ''),
+            estimation_data.get('documents_client', ''),
+            estimation_data.get('prix_estimation', 0.0),
+            numero_reference
+        ))
+        
+        estimation_id = cursor.lastrowid
+        
+        # Créer une notification admin
+        cursor.execute('''
+            INSERT INTO notifications (
+                utilisateur_type, utilisateur_id, type_notification,
+                titre, message, lien_id
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            'admin', 0, 'nouvelle_estimation',
+            'Nouvelle demande d\'estimation',
+            f'{estimation_data["nom_client"]} a demandé une estimation pour {estimation_data["type_projet"]}',
+            estimation_id
+        ))
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Erreur lors de la création de l'estimation: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def get_estimations_admin() -> List[Dict]:
+    """Récupère toutes les estimations pour l'admin"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, nom_client, email_client, telephone_client, type_projet,
+               description_detaillee, budget_approximatif, prix_estimation,
+               statut, date_demande, numero_reference, notes_internes,
+               plans_client, photos_client, documents_client
+        FROM estimations
+        ORDER BY date_demande DESC
+    ''')
+    
+    estimations = []
+    for row in cursor.fetchall():
+        estimations.append({
+            'id': row[0],
+            'nom_client': row[1],
+            'email_client': row[2],
+            'telephone_client': row[3],
+            'type_projet': row[4],
+            'description_detaillee': row[5],
+            'budget_approximatif': row[6],
+            'prix_estimation': row[7],
+            'statut': row[8],
+            'date_demande': row[9],
+            'numero_reference': row[10],
+            'notes_internes': row[11],
+            'plans_client': row[12],
+            'photos_client': row[13],
+            'documents_client': row[14]
+        })
+    
+    conn.close()
+    return estimations
+
+def get_estimation_by_id(estimation_id: int) -> Optional[Dict]:
+    """Récupère une estimation par son ID"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT * FROM estimations WHERE id = ?
+    ''', (estimation_id,))
+    
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+    
+    # Mapper toutes les colonnes
+    columns = [description[0] for description in cursor.description]
+    estimation = dict(zip(columns, row))
+    
+    conn.close()
+    return estimation
+
+def get_estimations_client(email_client: str) -> List[Dict]:
+    """Récupère les estimations d'un client par email"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, type_projet, description_detaillee, prix_estimation,
+               statut, date_demande, numero_reference, 
+               date_estimation_terminee, date_envoi_client
+        FROM estimations
+        WHERE email_client = ?
+        ORDER BY date_demande DESC
+    ''', (email_client,))
+    
+    estimations = []
+    for row in cursor.fetchall():
+        estimations.append({
+            'id': row[0],
+            'type_projet': row[1],
+            'description_detaillee': row[2],
+            'prix_estimation': row[3],
+            'statut': row[4],
+            'date_demande': row[5],
+            'numero_reference': row[6],
+            'date_estimation_terminee': row[7],
+            'date_envoi_client': row[8]
+        })
+    
+    conn.close()
+    return estimations
+
+def mettre_a_jour_statut_estimation(estimation_id: int, nouveau_statut: str, notes_internes: str = None) -> bool:
+    """Met à jour le statut d'une estimation"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        updates = ['statut = ?']
+        params = [nouveau_statut]
+        
+        if nouveau_statut == 'en_cours':
+            updates.append('date_debut_analyse = ?')
+            params.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        elif nouveau_statut == 'terminee':
+            updates.append('date_estimation_terminee = ?')
+            params.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        elif nouveau_statut == 'envoyee':
+            updates.append('date_envoi_client = ?')
+            params.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+        
+        if notes_internes:
+            updates.append('notes_internes = ?')
+            params.append(notes_internes)
+        
+        params.append(estimation_id)
+        
+        cursor.execute(f'''
+            UPDATE estimations 
+            SET {', '.join(updates)}
+            WHERE id = ?
+        ''', params)
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Erreur lors de la mise à jour du statut: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def ajouter_documents_estimation(estimation_id: int, estimation_doc: str = None, facture_doc: str = None, annexes: str = None) -> bool:
+    """Ajoute les documents d'estimation et facture"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        updates = []
+        params = []
+        
+        if estimation_doc:
+            updates.append('estimation_document = ?')
+            params.append(estimation_doc)
+        
+        if facture_doc:
+            updates.append('facture_document = ?')
+            params.append(facture_doc)
+        
+        if annexes:
+            updates.append('documents_annexes = ?')
+            params.append(annexes)
+        
+        if updates:
+            updates.append('statut = ?')
+            params.append('envoyee')
+            updates.append('date_envoi_client = ?')
+            params.append(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+            params.append(estimation_id)
+            
+            cursor.execute(f'''
+                UPDATE estimations 
+                SET {', '.join(updates)}
+                WHERE id = ?
+            ''', params)
+        
+        conn.commit()
+        return True
+        
+    except Exception as e:
+        print(f"Erreur lors de l'ajout des documents: {e}")
+        conn.rollback()
+        return False
+    finally:
+        conn.close()
+
+def decoder_fichiers_client(fichiers_string: str) -> List[Dict]:
+    """Decode les fichiers base64 stockés par le client"""
+    fichiers = []
+    if not fichiers_string:
+        return fichiers
+    
+    try:
+        # Format: "nom_fichier:base64_content,nom_fichier2:base64_content2"
+        fichiers_raw = fichiers_string.split(',')
+        
+        for fichier_raw in fichiers_raw:
+            if ':' in fichier_raw:
+                nom_fichier, contenu_b64 = fichier_raw.split(':', 1)
+                fichiers.append({
+                    'nom': nom_fichier,
+                    'contenu_b64': contenu_b64,
+                    'taille': len(contenu_b64) * 3 // 4  # Approximation de la taille décodée
+                })
+    except Exception as e:
+        print(f"Erreur lors du décodage des fichiers: {e}")
+    
+    return fichiers
+
+def generer_lien_telechargement(nom_fichier: str, contenu_b64: str) -> str:
+    """Génère un lien de téléchargement pour un fichier base64"""
+    try:
+        # Déterminer le type MIME basé sur l'extension
+        extension = nom_fichier.lower().split('.')[-1] if '.' in nom_fichier else ''
+        mime_types = {
+            'pdf': 'application/pdf',
+            'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'doc': 'application/msword',
+            'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'dwg': 'application/acad',
+            'txt': 'text/plain'
+        }
+        
+        mime_type = mime_types.get(extension, 'application/octet-stream')
+        
+        # Créer le lien de téléchargement HTML
+        download_link = f"""
+        <a href="data:{mime_type};base64,{contenu_b64}" 
+           download="{nom_fichier}"
+           style="
+               display: inline-block;
+               padding: 8px 16px;
+               background-color: #3B82F6;
+               color: white;
+               text-decoration: none;
+               border-radius: 6px;
+               font-size: 14px;
+               margin: 2px;
+           ">
+           📥 {nom_fichier}
+        </a>
+        """
+        return download_link
+    except Exception as e:
+        return f"❌ Erreur: {nom_fichier}"
+
+def afficher_fichiers_client(plans_client: str, photos_client: str, documents_client: str):
+    """Affiche les fichiers uploadés par le client avec liens de téléchargement"""
+    
+    st.markdown("---")
+    st.markdown("### 📎 Documents fournis par le client")
+    
+    # Plans et croquis
+    if plans_client:
+        st.markdown("**📐 Plans et croquis :**")
+        plans = decoder_fichiers_client(plans_client)
+        if plans:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                for plan in plans:
+                    link = generer_lien_telechargement(plan['nom'], plan['contenu_b64'])
+                    st.markdown(link, unsafe_allow_html=True)
+            with col2:
+                st.info(f"📁 {len(plans)} fichier(s)")
+        else:
+            st.info("Aucun plan fourni")
+    
+    # Photos
+    if photos_client:
+        st.markdown("**📷 Photos de l'existant :**")
+        photos = decoder_fichiers_client(photos_client)
+        if photos:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                for photo in photos:
+                    link = generer_lien_telechargement(photo['nom'], photo['contenu_b64'])
+                    st.markdown(link, unsafe_allow_html=True)
+                    
+                    # Afficher un aperçu pour les images
+                    if photo['nom'].lower().endswith(('.jpg', '.jpeg', '.png')):
+                        try:
+                            import base64
+                            import io
+                            from PIL import Image
+                            
+                            # Décoder et afficher l'image
+                            image_data = base64.b64decode(photo['contenu_b64'])
+                            image = Image.open(io.BytesIO(image_data))
+                            
+                            # Redimensionner pour l'aperçu
+                            image.thumbnail((300, 300))
+                            st.image(image, caption=photo['nom'], width=300)
+                        except Exception as e:
+                            st.warning(f"Impossible d'afficher l'aperçu de {photo['nom']}")
+            with col2:
+                st.info(f"📸 {len(photos)} photo(s)")
+        else:
+            st.info("Aucune photo fournie")
+    
+    # Autres documents
+    if documents_client:
+        st.markdown("**📄 Autres documents :**")
+        docs = decoder_fichiers_client(documents_client)
+        if docs:
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                for doc in docs:
+                    link = generer_lien_telechargement(doc['nom'], doc['contenu_b64'])
+                    st.markdown(link, unsafe_allow_html=True)
+            with col2:
+                st.info(f"📋 {len(docs)} document(s)")
+        else:
+            st.info("Aucun autre document fourni")
+    
+    # Si aucun fichier
+    if not any([plans_client, photos_client, documents_client]):
+        st.info("❌ Aucun document fourni par le client")
+
 # Fonctions de recherche et filtrage
 def filtrer_projets_pour_entrepreneurs(
     type_projet: str = None,
@@ -1322,7 +1689,8 @@ def main():
             ["🏠 Accueil", 
              "📝 Publier un appel d'offres", 
              "📋 Mes appels d'offres",
-             "🏢 Espace soumissionnaires",
+             "🏢 Espace Entrepreneurs",
+             "💰 Service d'estimation",
              "⚙️ Administration"],
             index=0,
             help="Sélectionnez la section où vous voulez aller"
@@ -1361,8 +1729,10 @@ def main():
             st.session_state.page = 'nouveau_projet'
         elif "mes" in page.lower() or "mes projets" in page.lower():
             st.session_state.page = 'mes_projets'
-        elif "soumissionnaires" in page.lower() or "entrepreneur" in page.lower():
+        elif "entrepreneurs" in page.lower() or "espace entrepreneurs" in page.lower():
             st.session_state.page = 'entrepreneur'
+        elif "estimation" in page.lower() or "service d'estimation" in page.lower():
+            st.session_state.page = 'service_estimation'
         elif "administration" in page.lower():
             st.session_state.page = 'admin'
     
@@ -1385,6 +1755,8 @@ def main():
         page_nouveau_projet()
     elif st.session_state.page == 'mes_projets':
         page_mes_projets()
+    elif st.session_state.page == 'service_estimation':
+        page_service_estimation()
     elif st.session_state.page == 'entrepreneur':
         page_espace_entrepreneur()
     elif st.session_state.page == 'admin':
@@ -1407,7 +1779,7 @@ def page_accueil():
         **Pour les organismes publics et clients:**
         1. 📝 Publiez vos appels d'offres avec tous les détails et plans
         2. 📊 Recevez des soumissions détaillées d'entrepreneurs qualifiés RBQ
-        3. 💬 Communiquez directement avec les soumissionnaires
+        3. 💬 Communiquez directement avec les entrepreneurs
         4. ✅ Sélectionnez la meilleure offre selon vos critères
         
         **Pour les entrepreneurs et fournisseurs:**
@@ -1464,7 +1836,8 @@ def page_accueil():
                     st.caption(f"📋 {projet['nb_soumissions']} soumissions")
                 
                 with col3:
-                    st.caption(f"📅 {projet['date_creation'][:10]}")
+                    date_affichage = projet['date_creation'][:10] if projet['date_creation'] else "N/A"
+                    st.caption(f"📅 {date_affichage}")
                 
                 with col4:
                     # Indicateur d'urgence compact
@@ -2525,7 +2898,8 @@ def page_espace_entrepreneur():
                             st.write(f"💰 Budget: {projet['budget']}")
                             st.write(f"📍 Zone: {projet['code_postal']}")
                             st.write(f"📋 {projet['nb_soumissions']} soumission(s)")
-                            st.write(f"📆 Publié: {projet['date_creation'][:10]}")
+                            date_pub = projet['date_creation'][:10] if projet['date_creation'] else "N/A"
+                            st.write(f"📆 Publié: {date_pub}")
                         
                         # Affichage des pièces jointes
                         st.markdown("---")
@@ -2810,7 +3184,8 @@ def page_espace_entrepreneur():
                         with col2:
                             st.write(f"**Ma soumission:** {soum['montant']:,.2f}$")
                             st.write(f"**Statut:** {soum['statut'].capitalize()}")
-                            st.write(f"**Date:** {soum['date_creation'][:10]}")
+                            date_soum = soum['date_creation'][:10] if soum['date_creation'] else "N/A"
+                            st.write(f"**Date:** {date_soum}")
                         
                         if soum['statut'] == 'acceptee':
                             st.success("🎉 Félicitations! Votre soumission a été acceptée!")
@@ -3015,7 +3390,7 @@ def page_administration():
                 st.rerun()
         
         # Dashboard administrateur avec onglets
-        tab1, tab2, tab3 = st.tabs(["📊 Vue d'ensemble", "👥 Gestion des entrepreneurs", "📋 Gestion des soumissions"])
+        tab1, tab2, tab3, tab4 = st.tabs(["📊 Vue d'ensemble", "👥 Gestion des entrepreneurs", "📋 Gestion des soumissions", "💰 Gestion des estimations"])
         
         with tab1:
             st.markdown("### 📊 Statistiques globales de SEAOP")
@@ -3142,6 +3517,216 @@ def page_administration():
             conn.close()
             
             st.dataframe(df_soumissions, use_container_width=True)
+        
+        with tab4:
+            st.markdown("### 💰 Gestion des estimations")
+            
+            # Récupérer toutes les estimations
+            estimations = get_estimations_admin()
+            
+            if estimations:
+                st.markdown(f"**📋 {len(estimations)} demande(s) d'estimation au total**")
+                
+                # Filtres pour les estimations
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    filtre_statut = st.selectbox(
+                        "Filtrer par statut",
+                        ["Tous", "recue", "en_cours", "terminee", "envoyee", "payee"],
+                        format_func=lambda x: {
+                            "Tous": "Tous les statuts",
+                            "recue": "🆕 Reçues", 
+                            "en_cours": "🔄 En cours",
+                            "terminee": "✅ Terminées",
+                            "envoyee": "📧 Envoyées",
+                            "payee": "💰 Payées"
+                        }[x]
+                    )
+                
+                with col2:
+                    filtre_type = st.selectbox(
+                        "Filtrer par type",
+                        ["Tous", "Rénovation cuisine", "Rénovation salle de bain", "Toiture", "Agrandissement", "Autre"]
+                    )
+                
+                with col3:
+                    trier_par = st.selectbox(
+                        "Trier par",
+                        ["Date (récent)", "Date (ancien)", "Prix (croissant)", "Prix (décroissant)", "Statut"]
+                    )
+                
+                # Appliquer les filtres
+                estimations_filtrees = estimations
+                
+                if filtre_statut != "Tous":
+                    estimations_filtrees = [e for e in estimations_filtrees if e['statut'] == filtre_statut]
+                
+                if filtre_type != "Tous":
+                    estimations_filtrees = [e for e in estimations_filtrees if e['type_projet'] == filtre_type]
+                
+                # Appliquer le tri
+                if trier_par == "Date (récent)":
+                    estimations_filtrees.sort(key=lambda x: x['date_demande'], reverse=True)
+                elif trier_par == "Date (ancien)":
+                    estimations_filtrees.sort(key=lambda x: x['date_demande'])
+                elif trier_par == "Prix (croissant)":
+                    estimations_filtrees.sort(key=lambda x: x['prix_estimation'] or 0)
+                elif trier_par == "Prix (décroissant)":
+                    estimations_filtrees.sort(key=lambda x: x['prix_estimation'] or 0, reverse=True)
+                elif trier_par == "Statut":
+                    estimations_filtrees.sort(key=lambda x: x['statut'])
+                
+                st.markdown(f"**📊 {len(estimations_filtrees)} estimation(s) affichée(s)**")
+                
+                # Afficher les estimations
+                for estimation in estimations_filtrees:
+                    # Mapper les statuts pour l'affichage
+                    statuts_affichage = {
+                        'recue': '🆕 Reçue',
+                        'en_cours': '🔄 En cours',
+                        'terminee': '✅ Terminée',
+                        'envoyee': '📧 Envoyée',
+                        'payee': '💰 Payée'
+                    }
+                    
+                    statut_badge = statuts_affichage.get(estimation['statut'], estimation['statut'])
+                    
+                    with st.expander(f"**{estimation['nom_client']}** - {estimation['type_projet']} ({estimation['numero_reference']}) - {statut_badge}", expanded=False):
+                        
+                        col1, col2, col3 = st.columns([2, 1, 1])
+                        
+                        with col1:
+                            st.markdown(f"**📧 Email :** {estimation['email_client']}")
+                            st.markdown(f"**📞 Téléphone :** {estimation['telephone_client']}")
+                            st.markdown(f"**📋 Description :** {estimation['description_detaillee'][:200]}...")
+                            if estimation['budget_approximatif']:
+                                st.markdown(f"**💰 Budget approximatif :** {estimation['budget_approximatif']}")
+                        
+                        with col2:
+                            st.markdown(f"**📅 Date demande :** {estimation['date_demande']}")
+                            st.markdown(f"**📊 Statut :** {statut_badge}")
+                            if estimation['prix_estimation']:
+                                st.markdown(f"**💵 Prix estimation :** {estimation['prix_estimation']:.2f}$")
+                        
+                        with col3:
+                            # Actions administrateur
+                            st.markdown("**⚙️ Actions :**")
+                            
+                            # Changer le statut
+                            nouveau_statut = st.selectbox(
+                                "Changer statut",
+                                ["recue", "en_cours", "terminee", "envoyee", "payee"],
+                                index=["recue", "en_cours", "terminee", "envoyee", "payee"].index(estimation['statut']),
+                                key=f"statut_{estimation['id']}",
+                                format_func=lambda x: statuts_affichage[x]
+                            )
+                            
+                            # Notes internes
+                            notes_internes = st.text_area(
+                                "Notes internes",
+                                value=estimation['notes_internes'] or "",
+                                key=f"notes_{estimation['id']}",
+                                height=100
+                            )
+                            
+                            if st.button(f"🔄 Mettre à jour", key=f"update_{estimation['id']}"):
+                                if mettre_a_jour_statut_estimation(estimation['id'], nouveau_statut, notes_internes):
+                                    st.success("✅ Estimation mise à jour!")
+                                    st.rerun()
+                                else:
+                                    st.error("❌ Erreur lors de la mise à jour")
+                        
+                        # Section upload documents si statut approprié
+                        if estimation['statut'] in ['terminee', 'envoyee']:
+                            st.markdown("---")
+                            st.markdown("**📎 Documents d'estimation**")
+                            
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                st.markdown("**📄 Estimation (PDF/HTML)**")
+                                estimation_doc = st.file_uploader(
+                                    "Upload estimation",
+                                    type=['pdf', 'html', 'doc', 'docx'],
+                                    key=f"est_doc_{estimation['id']}"
+                                )
+                            
+                            with col2:
+                                st.markdown("**🧾 Facture**")
+                                facture_doc = st.file_uploader(
+                                    "Upload facture",
+                                    type=['pdf', 'html', 'doc', 'docx'],
+                                    key=f"fact_doc_{estimation['id']}"
+                                )
+                            
+                            if st.button(f"📤 Envoyer documents", key=f"send_docs_{estimation['id']}"):
+                                docs_base64 = {}
+                                
+                                if estimation_doc:
+                                    file_content = estimation_doc.read()
+                                    docs_base64['estimation'] = f"{estimation_doc.name}:{base64.b64encode(file_content).decode()}"
+                                
+                                if facture_doc:
+                                    file_content = facture_doc.read()
+                                    docs_base64['facture'] = f"{facture_doc.name}:{base64.b64encode(file_content).decode()}"
+                                
+                                if docs_base64:
+                                    if ajouter_documents_estimation(
+                                        estimation['id'], 
+                                        docs_base64.get('estimation'),
+                                        docs_base64.get('facture')
+                                    ):
+                                        st.success("🎉 Documents envoyés avec succès!")
+                                        st.info("Le client a été notifié que son estimation est prête.")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Erreur lors de l'envoi des documents")
+                                else:
+                                    st.warning("⚠️ Veuillez sélectionner au moins un document")
+                        
+                        # Afficher les fichiers fournis par le client
+                        afficher_fichiers_client(
+                            estimation.get('plans_client', ''),
+                            estimation.get('photos_client', ''),
+                            estimation.get('documents_client', '')
+                        )
+                
+                # Statistiques des estimations
+                st.markdown("---")
+                st.markdown("### 📊 Statistiques des estimations")
+                
+                col1, col2, col3, col4 = st.columns(4)
+                
+                # Calculer les stats
+                stats_estimations = {
+                    'total': len(estimations),
+                    'recues': len([e for e in estimations if e['statut'] == 'recue']),
+                    'en_cours': len([e for e in estimations if e['statut'] == 'en_cours']),
+                    'envoyees': len([e for e in estimations if e['statut'] == 'envoyee']),
+                    'ca_estimations': sum(e['prix_estimation'] for e in estimations if e['prix_estimation'])
+                }
+                
+                with col1:
+                    st.metric("Total estimations", stats_estimations['total'])
+                
+                with col2:
+                    st.metric("En attente", stats_estimations['recues'])
+                
+                with col3:
+                    st.metric("En cours", stats_estimations['en_cours'])
+                
+                with col4:
+                    st.metric("CA estimations", f"{stats_estimations['ca_estimations']:.2f}$")
+                
+            else:
+                st.info("📭 Aucune demande d'estimation pour le moment")
+                st.markdown("""
+                **Les clients peuvent demander des estimations via :**
+                - Le menu "💰 Service d'estimation" dans l'interface principale
+                - Upload de plans, photos et description détaillée du projet
+                - Suivi en temps réel du statut de leur demande
+                """)
 
 # ================== SYSTÈME DE DÉLAIS/URGENCE ==================
 
@@ -3336,6 +3921,257 @@ def get_projets_par_urgence() -> Dict[str, List[Dict]]:
     
     conn.close()
     return projets_par_urgence
+
+def page_service_estimation():
+    """Page du service d'estimation payant"""
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1>💰 Service d'estimation professionnel</h1>
+        <p>Obtenez une estimation détaillée pour votre projet avec notre service expert</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Tabs pour séparer demande d'estimation et suivi
+    tab1, tab2 = st.tabs(["📝 Demander une estimation", "📊 Mes estimations"])
+    
+    with tab1:
+        st.markdown("### 🎯 Nouvelle demande d'estimation")
+        
+        with st.form("demande_estimation"):
+            st.markdown("**📋 Informations de contact**")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                nom_client = st.text_input("Nom complet *", placeholder="Ex: Marie Dubois")
+                email_client = st.text_input("Email *", placeholder="marie.dubois@email.com")
+            
+            with col2:
+                telephone_client = st.text_input("Téléphone *", placeholder="514-555-1234")
+                adresse_client = st.text_input("Adresse du projet", placeholder="123 Rue Principale, Montréal, QC")
+            
+            st.markdown("**🏗️ Détails du projet**")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                type_projet = st.selectbox(
+                    "Type de projet *",
+                    ["", "Rénovation cuisine", "Rénovation salle de bain", "Toiture", 
+                     "Revêtement extérieur", "Plancher", "Peinture", "Agrandissement",
+                     "Fondation", "Plomberie", "Électricité", "Isolation", "CVC",
+                     "Fenêtres et portes", "Maçonnerie", "Charpenterie", "Paysagement", "Autre"]
+                )
+                
+                budget_approximatif = st.selectbox(
+                    "Budget approximatif",
+                    ["À déterminer", "Moins de 5 000$", "5 000$ - 15 000$", "15 000$ - 30 000$", 
+                     "30 000$ - 50 000$", "50 000$ - 100 000$", "Plus de 100 000$"]
+                )
+            
+            with col2:
+                surface_approximative = st.text_input("Surface approximative", placeholder="Ex: 120 pi²")
+                delai_souhaite = st.selectbox(
+                    "Délai souhaité pour les travaux",
+                    ["Flexible", "Dès que possible", "Dans 1 mois", "Dans 2-3 mois", 
+                     "Dans 3-6 mois", "Plus de 6 mois"]
+                )
+            
+            description_detaillee = st.text_area(
+                "Description détaillée du projet *",
+                placeholder="""Décrivez précisément votre projet:
+- Travaux souhaités
+- Matériaux préférés
+- Contraintes particulières
+- Objectifs spécifiques
+- Toute information utile pour l'estimation""",
+                height=200
+            )
+            
+            st.markdown("**📎 Documents du projet**")
+            st.info("💡 Plus vous fournissez de documents précis (plans, photos, croquis), plus l'estimation sera précise.")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("**📐 Plans et croquis**")
+                plans_files = st.file_uploader(
+                    "Plans, croquis, schémas",
+                    type=['pdf', 'png', 'jpg', 'jpeg', 'dwg'],
+                    accept_multiple_files=True,
+                    key="plans_estimation"
+                )
+            
+            with col2:
+                st.markdown("**📷 Photos existant**")
+                photos_files = st.file_uploader(
+                    "Photos de l'état actuel",
+                    type=['png', 'jpg', 'jpeg'],
+                    accept_multiple_files=True,
+                    key="photos_estimation"
+                )
+            
+            with col3:
+                st.markdown("**📄 Autres documents**")
+                docs_files = st.file_uploader(
+                    "Devis existants, spécifications...",
+                    type=['pdf', 'doc', 'docx', 'txt'],
+                    accept_multiple_files=True,
+                    key="docs_estimation"
+                )
+            
+            st.markdown("---")
+            st.markdown("**💰 Service d'estimation**")
+            st.info("""
+            **Notre service d'estimation professionnel inclut :**
+            - ✅ Analyse détaillée de votre projet
+            - ✅ Estimation précise des coûts par poste
+            - ✅ Recommandations de matériaux et techniques
+            - ✅ Planning approximatif des travaux
+            - ✅ Liste des permis/autorisations nécessaires
+            - ✅ Rapport d'estimation professionnel (PDF)
+            - ✅ Facture détaillée
+            
+            **Tarif : 150$ - 300$ selon la complexité**
+            """)
+            
+            soumis = st.form_submit_button("📤 Envoyer ma demande d'estimation", type="primary")
+            
+            if soumis:
+                # Validation des champs obligatoires
+                erreurs = []
+                if not nom_client.strip():
+                    erreurs.append("Le nom est obligatoire")
+                if not email_client.strip():
+                    erreurs.append("L'email est obligatoire")
+                if not valider_email(email_client):
+                    erreurs.append("Format d'email invalide")
+                if not telephone_client.strip():
+                    erreurs.append("Le téléphone est obligatoire")
+                if not type_projet or type_projet == "":
+                    erreurs.append("Le type de projet est obligatoire")
+                if not description_detaillee.strip():
+                    erreurs.append("La description du projet est obligatoire")
+                
+                if erreurs:
+                    for erreur in erreurs:
+                        st.error(f"❌ {erreur}")
+                else:
+                    # Traiter les fichiers uploadés
+                    plans_base64 = []
+                    photos_base64 = []
+                    docs_base64 = []
+                    
+                    if plans_files:
+                        for file in plans_files:
+                            try:
+                                file_content = file.read()
+                                file_b64 = base64.b64encode(file_content).decode()
+                                plans_base64.append(f"{file.name}:{file_b64}")
+                            except Exception as e:
+                                st.error(f"Erreur lors du traitement de {file.name}: {e}")
+                    
+                    if photos_files:
+                        for file in photos_files:
+                            try:
+                                file_content = file.read()
+                                file_b64 = base64.b64encode(file_content).decode()
+                                photos_base64.append(f"{file.name}:{file_b64}")
+                            except Exception as e:
+                                st.error(f"Erreur lors du traitement de {file.name}: {e}")
+                    
+                    if docs_files:
+                        for file in docs_files:
+                            try:
+                                file_content = file.read()
+                                file_b64 = base64.b64encode(file_content).decode()
+                                docs_base64.append(f"{file.name}:{file_b64}")
+                            except Exception as e:
+                                st.error(f"Erreur lors du traitement de {file.name}: {e}")
+                    
+                    # Créer la demande d'estimation
+                    estimation_data = {
+                        'nom_client': nom_client.strip(),
+                        'email_client': email_client.strip().lower(),
+                        'telephone_client': telephone_client.strip(),
+                        'adresse_client': adresse_client.strip(),
+                        'type_projet': type_projet,
+                        'description_detaillee': description_detaillee.strip(),
+                        'surface_approximative': surface_approximative.strip(),
+                        'budget_approximatif': budget_approximatif,
+                        'delai_souhaite': delai_souhaite,
+                        'plans_client': ",".join(plans_base64),
+                        'photos_client': ",".join(photos_base64),
+                        'documents_client': ",".join(docs_base64),
+                        'prix_estimation': 200.0  # Prix de base, ajustable selon complexité
+                    }
+                    
+                    if creer_demande_estimation(estimation_data):
+                        st.success("🎉 Votre demande d'estimation a été envoyée avec succès!")
+                        st.info("""
+                        **Prochaines étapes :**
+                        1. Vous recevrez un email de confirmation dans les prochaines minutes
+                        2. Notre équipe analysera votre projet sous 24-48h
+                        3. Vous serez contacté pour discuter des détails si nécessaire  
+                        4. L'estimation sera préparée et envoyée sous 3-5 jours ouvrables
+                        
+                        Vous pouvez suivre l'état de votre demande dans l'onglet "Mes estimations".
+                        """)
+                        st.balloons()
+                    else:
+                        st.error("❌ Erreur lors de l'envoi de votre demande. Veuillez réessayer.")
+    
+    with tab2:
+        st.markdown("### 📊 Suivi de mes estimations")
+        
+        # Formulaire pour consulter les estimations
+        with st.form("consultation_estimations"):
+            email_consultation = st.text_input("Email pour consulter vos estimations", 
+                                             placeholder="votre.email@exemple.com")
+            consulter = st.form_submit_button("🔍 Consulter mes estimations")
+        
+        if consulter and email_consultation:
+            if valider_email(email_consultation):
+                estimations = get_estimations_client(email_consultation.strip().lower())
+                
+                if estimations:
+                    st.success(f"📋 {len(estimations)} estimation(s) trouvée(s)")
+                    
+                    for estimation in estimations:
+                        # Mapper les statuts pour l'affichage
+                        statuts_affichage = {
+                            'recue': '🆕 Demande reçue',
+                            'en_cours': '🔄 En cours d\'analyse',
+                            'terminee': '✅ Estimation terminée',
+                            'envoyee': '📧 Estimation envoyée',
+                            'payee': '💰 Payée'
+                        }
+                        
+                        with st.expander(f"**{estimation['type_projet']}** - {estimation['numero_reference']}", expanded=True):
+                            col1, col2, col3 = st.columns([2, 1, 1])
+                            
+                            with col1:
+                                st.write(f"**Description :** {estimation['description_detaillee'][:200]}...")
+                                st.write(f"**Date de demande :** {estimation['date_demande']}")
+                            
+                            with col2:
+                                statut_badge = statuts_affichage.get(estimation['statut'], estimation['statut'])
+                                st.markdown(f"**Statut :** {statut_badge}")
+                                if estimation['prix_estimation']:
+                                    st.write(f"**Prix estimation :** {estimation['prix_estimation']:.2f}$")
+                            
+                            with col3:
+                                if estimation['date_estimation_terminee']:
+                                    st.write(f"**Terminée le :** {estimation['date_estimation_terminee']}")
+                                if estimation['date_envoi_client']:
+                                    st.write(f"**Envoyée le :** {estimation['date_envoi_client']}")
+                            
+                            # Si l'estimation est envoyée, proposer de télécharger
+                            if estimation['statut'] == 'envoyee':
+                                st.success("🎉 Votre estimation est prête ! Contactez-nous pour recevoir les documents.")
+                else:
+                    st.info("Aucune estimation trouvée pour cet email.")
+            else:
+                st.error("Format d'email invalide")
 
 if __name__ == "__main__":
     main()
