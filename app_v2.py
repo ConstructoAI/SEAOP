@@ -344,6 +344,134 @@ def sauvegarder_soumission(soumission: Soumission) -> bool:
         conn.close()
         return False
 
+# Fonctions de gestion des messages
+def envoyer_message(lead_id: int, entrepreneur_id: int, expediteur_type: str, expediteur_id: int, destinataire_id: int, message: str, pieces_jointes: str = None) -> bool:
+    """Envoie un message entre client et entrepreneur"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO messages (lead_id, entrepreneur_id, expediteur_type, expediteur_id, destinataire_id, message, pieces_jointes)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (lead_id, entrepreneur_id, expediteur_type, expediteur_id, destinataire_id, message, pieces_jointes))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de l'envoi du message: {e}")
+        return False
+
+def get_messages_conversation(lead_id: int, entrepreneur_id: int) -> List[Dict]:
+    """Récupère tous les messages d'une conversation entre client et entrepreneur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT m.*, 
+               CASE 
+                   WHEN m.expediteur_type = 'client' THEN l.nom
+                   ELSE e.nom_entreprise
+               END as nom_expediteur
+        FROM messages m
+        LEFT JOIN leads l ON m.lead_id = l.id
+        LEFT JOIN entrepreneurs e ON m.entrepreneur_id = e.id
+        WHERE m.lead_id = ? AND m.entrepreneur_id = ?
+        ORDER BY m.date_envoi ASC
+    ''', (lead_id, entrepreneur_id))
+    
+    messages = []
+    for row in cursor.fetchall():
+        messages.append({
+            'id': row[0],
+            'lead_id': row[1],
+            'entrepreneur_id': row[2],
+            'expediteur_type': row[3],
+            'expediteur_id': row[4],
+            'destinataire_id': row[5],
+            'message': row[6],
+            'pieces_jointes': row[7],
+            'date_envoi': row[8],
+            'lu': row[9],
+            'nom_expediteur': row[10]
+        })
+    
+    conn.close()
+    return messages
+
+def marquer_messages_lus(lead_id: int, entrepreneur_id: int, destinataire_id: int):
+    """Marque tous les messages comme lus pour un destinataire"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        UPDATE messages SET lu = 1 
+        WHERE lead_id = ? AND entrepreneur_id = ? AND destinataire_id = ? AND lu = 0
+    ''', (lead_id, entrepreneur_id, destinataire_id))
+    
+    conn.commit()
+    conn.close()
+
+def get_conversations_client(client_id: int) -> List[Dict]:
+    """Récupère toutes les conversations d'un client"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT DISTINCT m.lead_id, m.entrepreneur_id, e.nom_entreprise, l.type_projet,
+               (SELECT COUNT(*) FROM messages m2 WHERE m2.lead_id = m.lead_id AND m2.entrepreneur_id = m.entrepreneur_id AND m2.destinataire_id = ? AND m2.lu = 0) as non_lus,
+               (SELECT MAX(date_envoi) FROM messages m3 WHERE m3.lead_id = m.lead_id AND m3.entrepreneur_id = m.entrepreneur_id) as dernier_message
+        FROM messages m
+        JOIN entrepreneurs e ON m.entrepreneur_id = e.id
+        JOIN leads l ON m.lead_id = l.id
+        WHERE l.email = (SELECT email FROM leads WHERE id = ?)
+        ORDER BY dernier_message DESC
+    ''', (client_id, client_id))
+    
+    conversations = []
+    for row in cursor.fetchall():
+        conversations.append({
+            'lead_id': row[0],
+            'entrepreneur_id': row[1],
+            'nom_entreprise': row[2],
+            'type_projet': row[3],
+            'non_lus': row[4],
+            'dernier_message': row[5]
+        })
+    
+    conn.close()
+    return conversations
+
+def get_conversations_entrepreneur(entrepreneur_id: int) -> List[Dict]:
+    """Récupère toutes les conversations d'un entrepreneur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT DISTINCT m.lead_id, m.entrepreneur_id, l.nom as nom_client, l.type_projet,
+               (SELECT COUNT(*) FROM messages m2 WHERE m2.lead_id = m.lead_id AND m2.entrepreneur_id = m.entrepreneur_id AND m2.destinataire_id = ? AND m2.lu = 0) as non_lus,
+               (SELECT MAX(date_envoi) FROM messages m3 WHERE m3.lead_id = m.lead_id AND m3.entrepreneur_id = m.entrepreneur_id) as dernier_message
+        FROM messages m
+        JOIN leads l ON m.lead_id = l.id
+        WHERE m.entrepreneur_id = ?
+        ORDER BY dernier_message DESC
+    ''', (entrepreneur_id, entrepreneur_id))
+    
+    conversations = []
+    for row in cursor.fetchall():
+        conversations.append({
+            'lead_id': row[0],
+            'entrepreneur_id': row[1],
+            'nom_client': row[2],
+            'type_projet': row[3],
+            'non_lus': row[4],
+            'dernier_message': row[5]
+        })
+    
+    conn.close()
+    return conversations
+
 def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     """Récupère toutes les soumissions pour un projet"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -447,7 +575,16 @@ def main():
             help="Sélectionnez la section où vous voulez aller"
         )
         
-        st.markdown("---")
+        # Notifications de messages non lus
+        if st.session_state.get('entrepreneur_connecte'):
+            entrepreneur = st.session_state.entrepreneur_connecte
+            conversations = get_conversations_entrepreneur(entrepreneur.id)
+            total_non_lus = sum(conv['non_lus'] for conv in conversations)
+            
+            if total_non_lus > 0:
+                st.markdown(f"**💬 Messages non lus : {total_non_lus}**")
+                st.markdown("---")
+        
         st.markdown("**💡 Instructions :**")
         st.markdown("1. Sélectionnez une option dans le menu ci-dessus")
         st.markdown("2. La page se chargera automatiquement")
@@ -464,6 +601,11 @@ def main():
             st.session_state.page = 'admin'
     
     # Debug retiré - navigation par menu uniquement
+    
+    # Vérifier si on est en mode chat
+    if st.session_state.get('mode_chat', False):
+        page_chat()
+        return
     
     # Routing des pages
     if st.session_state.page == 'accueil':
@@ -940,10 +1082,145 @@ def page_mes_projets():
                                         st.rerun()
                             
                             with col3:
-                                if st.button("💬 Contacter", key=f"contact_{soum['id']}"):
-                                    st.info(f"📞 {soum['nom_entreprise']}: Fonctionnalité messagerie à venir")
+                                if st.button("💬 Chat", key=f"chat_{soum['id']}", help="Discuter avec l'entrepreneur"):
+                                    st.session_state.chat_lead_id = projet['id']
+                                    st.session_state.chat_entrepreneur_id = soum['entrepreneur_id']
+                                    st.session_state.chat_nom_entrepreneur = soum['nom_entreprise']
+                                    st.session_state.chat_type_utilisateur = 'client'
+                                    st.session_state.mode_chat = True
+                                    st.rerun()
                         
                         st.markdown("---")
+
+def page_chat():
+    """Interface de chat entre client et entrepreneur"""
+    if 'mode_chat' not in st.session_state or not st.session_state.mode_chat:
+        return
+    
+    # Récupérer les informations du chat
+    lead_id = st.session_state.get('chat_lead_id')
+    entrepreneur_id = st.session_state.get('chat_entrepreneur_id')
+    type_utilisateur = st.session_state.get('chat_type_utilisateur', 'client')
+    
+    if not lead_id or not entrepreneur_id:
+        st.error("Erreur: informations de chat manquantes")
+        return
+    
+    # En-tête du chat
+    col1, col2, col3 = st.columns([5, 1, 1])
+    with col1:
+        if type_utilisateur == 'client':
+            nom_correspondant = st.session_state.get('chat_nom_entrepreneur', 'Entrepreneur')
+            st.markdown(f"## 💬 Chat avec {nom_correspondant}")
+        else:
+            nom_correspondant = st.session_state.get('chat_nom_client', 'Client')
+            st.markdown(f"## 💬 Chat avec {nom_correspondant}")
+    
+    with col2:
+        if st.button("🔄 Actualiser", key="refresh_chat", help="Actualiser les messages"):
+            st.rerun()
+    
+    with col3:
+        if st.button("❌ Fermer", key="fermer_chat"):
+            st.session_state.mode_chat = False
+            for key in ['chat_lead_id', 'chat_entrepreneur_id', 'chat_nom_entrepreneur', 'chat_nom_client', 'chat_type_utilisateur']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Récupérer les messages de la conversation
+    messages = get_messages_conversation(lead_id, entrepreneur_id)
+    
+    # Marquer les messages comme lus
+    if type_utilisateur == 'client':
+        # Le client lit les messages de l'entrepreneur
+        projet = get_projets_par_email("dummy")[0] if get_projets_par_email("dummy") else None
+        if projet:
+            marquer_messages_lus(lead_id, entrepreneur_id, projet['id'])
+    else:
+        # L'entrepreneur lit les messages du client
+        marquer_messages_lus(lead_id, entrepreneur_id, entrepreneur_id)
+    
+    # Affichage des messages
+    st.markdown("### 📝 Conversation")
+    
+    # Container pour les messages avec scroll
+    chat_container = st.container()
+    with chat_container:
+        if not messages:
+            st.info("💬 Aucun message pour le moment. Commencez la conversation !")
+        else:
+            for msg in messages:
+                date_msg = msg['date_envoi'][:16] if msg['date_envoi'] else ""
+                
+                if msg['expediteur_type'] == type_utilisateur:
+                    # Message de l'utilisateur actuel (à droite)
+                    col1, col2 = st.columns([1, 3])
+                    with col2:
+                        st.markdown(f"""
+                        <div style="background-color: #E3F2FD; padding: 10px; border-radius: 10px; margin: 5px 0; text-align: right;">
+                            <strong>Vous</strong> - {date_msg}<br>
+                            {msg['message']}
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    # Message du correspondant (à gauche)
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        st.markdown(f"""
+                        <div style="background-color: #F5F5F5; padding: 10px; border-radius: 10px; margin: 5px 0;">
+                            <strong>{msg['nom_expediteur']}</strong> - {date_msg}<br>
+                            {msg['message']}
+                        </div>
+                        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Formulaire d'envoi de message
+    st.markdown("### ✍️ Envoyer un message")
+    with st.form("nouveau_message", clear_on_submit=True):
+        message = st.text_area(
+            "Votre message",
+            placeholder="Tapez votre message ici...",
+            height=100,
+            key="message_input"
+        )
+        
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.form_submit_button("📤 Envoyer", type="primary"):
+                if message.strip():
+                    # Déterminer les IDs d'expéditeur et destinataire
+                    if type_utilisateur == 'client':
+                        # Récupérer l'ID du client à partir du projet
+                        conn = sqlite3.connect(DATABASE_PATH)
+                        cursor = conn.cursor()
+                        cursor.execute('SELECT id FROM leads WHERE id = ?', (lead_id,))
+                        result = cursor.fetchone()
+                        conn.close()
+                        
+                        if result:
+                            expediteur_id = result[0]
+                            destinataire_id = entrepreneur_id
+                            expediteur_type = 'client'
+                        else:
+                            st.error("Erreur: impossible de récupérer les informations du client")
+                            st.stop()
+                    else:
+                        expediteur_id = entrepreneur_id
+                        destinataire_id = lead_id
+                        expediteur_type = 'entrepreneur'
+                    
+                    # Envoyer le message
+                    if envoyer_message(lead_id, entrepreneur_id, expediteur_type, expediteur_id, destinataire_id, message):
+                        st.success("Message envoyé!")
+                        st.rerun()
+                    else:
+                        st.error("Erreur lors de l'envoi du message")
+                else:
+                    st.warning("Veuillez saisir un message")
 
 def page_espace_entrepreneur():
     """Espace entrepreneur pour consulter projets et soumettre"""
@@ -1145,6 +1422,17 @@ def page_espace_entrepreneur():
                         
                         if deja_soumis:
                             st.success("✅ Vous avez déjà soumissionné sur ce projet")
+                            
+                            # Bouton chat pour communiquer avec le client
+                            col1, col2 = st.columns([1, 4])
+                            with col1:
+                                if st.button("💬 Chat client", key=f"chat_client_{projet['id']}", help="Discuter avec le client"):
+                                    st.session_state.chat_lead_id = projet['id']
+                                    st.session_state.chat_entrepreneur_id = entrepreneur.id
+                                    st.session_state.chat_nom_client = projet['nom']
+                                    st.session_state.chat_type_utilisateur = 'entrepreneur'
+                                    st.session_state.mode_chat = True
+                                    st.rerun()
                         else:
                             # Formulaire de soumission
                             st.markdown("---")
