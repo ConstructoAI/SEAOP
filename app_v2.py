@@ -428,15 +428,22 @@ def main():
         st.markdown("*Système Électronique d'Appel d'Offres Public*")
         st.markdown("---")
         
+        st.markdown("**🧭 Navigation principale :**")
         page = st.selectbox(
-            "Navigation",
+            "Choisissez une section",
             ["🏠 Accueil", 
              "📝 Publier un appel d'offres", 
              "📋 Mes appels d'offres",
              "🏢 Espace soumissionnaires",
              "⚙️ Administration"],
-            index=0
+            index=0,
+            help="Sélectionnez la section où vous voulez aller"
         )
+        
+        st.markdown("---")
+        st.markdown("**💡 Instructions :**")
+        st.markdown("1. Sélectionnez une option dans le menu ci-dessus")
+        st.markdown("2. La page se chargera automatiquement")
         
         if "accueil" in page.lower():
             st.session_state.page = 'accueil'
@@ -449,8 +456,7 @@ def main():
         elif "administration" in page.lower():
             st.session_state.page = 'admin'
     
-    # Affichage de debug (à retirer en production)
-    # st.caption(f"Page actuelle: {st.session_state.page}")
+    # Debug retiré - navigation par menu uniquement
     
     # Routing des pages
     if st.session_state.page == 'accueil':
@@ -466,6 +472,10 @@ def main():
 
 def page_accueil():
     """Page d'accueil avec présentation du service"""
+    
+    # Navigation uniquement par le menu
+    st.info("ℹ️ Utilisez le menu de navigation dans la barre latérale gauche pour accéder aux différentes sections.")
+    st.markdown("---")
     
     # Section héro
     col1, col2 = st.columns([2, 1])
@@ -487,17 +497,9 @@ def page_accueil():
         4. 🤝 Obtenez de nouveaux contrats publics
         """)
         
-        col_btn1, col_btn2 = st.columns(2)
-        with col_btn1:
-            if st.button("🏛️ Publier un appel d'offres", type="primary", use_container_width=True, key="btn_publier_ao"):
-                st.session_state.page = 'nouveau_projet'
-                st.success("Redirection vers la page de publication...")
-                st.rerun()
-        
-        with col_btn2:
-            if st.button("🏢 Accès soumissionnaires", use_container_width=True, key="btn_acces_soum"):
-                st.session_state.page = 'entrepreneur'
-                st.rerun()
+        st.markdown("**Pour commencer :**")
+        st.markdown("👉 Utilisez le **menu de navigation** dans la barre latérale gauche")
+        st.markdown("👉 Sélectionnez **'📝 Publier un appel d'offres'** dans le menu déroulant")
     
     with col2:
         st.markdown("""
