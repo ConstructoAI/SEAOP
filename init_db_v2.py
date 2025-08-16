@@ -135,6 +135,21 @@ def init_database_with_soumissions():
         )
     ''')
     
+    # Table des notifications - NOUVELLE
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            utilisateur_type TEXT NOT NULL,  -- 'client' ou 'entrepreneur'
+            utilisateur_id INTEGER NOT NULL,
+            type_notification TEXT NOT NULL,  -- 'nouvelle_soumission', 'soumission_acceptee', 'nouveau_message', 'nouvel_appel_offres', etc.
+            titre TEXT NOT NULL,
+            message TEXT NOT NULL,
+            lien_id INTEGER,  -- ID du projet, soumission ou message concerné
+            lu BOOLEAN DEFAULT 0,
+            date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # Table des attributions (pour compatibilité) - MODIFIÉE
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS attributions (

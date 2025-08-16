@@ -574,6 +574,176 @@ def get_derniers_commentaires_entrepreneur(entrepreneur_id: int, limit: int = 5)
     conn.close()
     return commentaires
 
+# Fonctions de gestion des notifications
+def creer_notification(utilisateur_type: str, utilisateur_id: int, type_notif: str, titre: str, message: str, lien_id: int = None) -> bool:
+    """Crée une nouvelle notification"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT INTO notifications (utilisateur_type, utilisateur_id, type_notification, titre, message, lien_id)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (utilisateur_type, utilisateur_id, type_notif, titre, message, lien_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de la création de notification: {e}")
+        return False
+
+def get_notifications_utilisateur(utilisateur_type: str, utilisateur_id: int, limit: int = 10) -> List[Dict]:
+    """Récupère les notifications d'un utilisateur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, type_notification, titre, message, lien_id, lu, date_creation
+        FROM notifications
+        WHERE utilisateur_type = ? AND utilisateur_id = ?
+        ORDER BY date_creation DESC
+        LIMIT ?
+    ''', (utilisateur_type, utilisateur_id, limit))
+    
+    notifications = []
+    for row in cursor.fetchall():
+        notifications.append({
+            'id': row[0],
+            'type_notification': row[1],
+            'titre': row[2],
+            'message': row[3],
+            'lien_id': row[4],
+            'lu': row[5],
+            'date_creation': row[6]
+        })
+    
+    conn.close()
+    return notifications
+
+def count_notifications_non_lues(utilisateur_type: str, utilisateur_id: int) -> int:
+    """Compte les notifications non lues d'un utilisateur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT COUNT(*) FROM notifications
+        WHERE utilisateur_type = ? AND utilisateur_id = ? AND lu = 0
+    ''', (utilisateur_type, utilisateur_id))
+    
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count
+
+def marquer_notification_lue(notification_id: int) -> bool:
+    """Marque une notification comme lue"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE notifications SET lu = 1 WHERE id = ?
+        ''', (notification_id,))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors du marquage de notification: {e}")
+        return False
+
+def marquer_toutes_notifications_lues(utilisateur_type: str, utilisateur_id: int) -> bool:
+    """Marque toutes les notifications d'un utilisateur comme lues"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE notifications SET lu = 1 
+            WHERE utilisateur_type = ? AND utilisateur_id = ? AND lu = 0
+        ''', (utilisateur_type, utilisateur_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors du marquage de toutes les notifications: {e}")
+        return False
+
+# Fonctions spécifiques de création de notifications
+def notifier_nouvelle_soumission(lead_id: int):
+    """Notifie le client qu'il a reçu une nouvelle soumission"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Récupérer les infos du projet
+    cursor.execute('SELECT nom, type_projet FROM leads WHERE id = ?', (lead_id,))
+    projet = cursor.fetchone()
+    
+    if projet:
+        titre = "📩 Nouvelle soumission reçue"
+        message = f"Vous avez reçu une nouvelle soumission pour votre projet : {projet[1]}"
+        creer_notification('client', lead_id, 'nouvelle_soumission', titre, message, lead_id)
+    
+    conn.close()
+
+def notifier_soumission_acceptee(soumission_id: int):
+    """Notifie l'entrepreneur que sa soumission a été acceptée"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Récupérer les infos de la soumission
+    cursor.execute('''
+        SELECT s.entrepreneur_id, l.type_projet, s.montant
+        FROM soumissions s
+        JOIN leads l ON s.lead_id = l.id
+        WHERE s.id = ?
+    ''', (soumission_id,))
+    
+    result = cursor.fetchone()
+    if result:
+        entrepreneur_id, type_projet, montant = result
+        titre = "🎉 Soumission acceptée !"
+        message = f"Félicitations ! Votre soumission de {montant:,.2f}$ pour le projet '{type_projet}' a été acceptée."
+        creer_notification('entrepreneur', entrepreneur_id, 'soumission_acceptee', titre, message, soumission_id)
+    
+    conn.close()
+
+def notifier_soumission_refusee(soumission_id: int):
+    """Notifie l'entrepreneur que sa soumission a été refusée"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Récupérer les infos de la soumission
+    cursor.execute('''
+        SELECT s.entrepreneur_id, l.type_projet
+        FROM soumissions s
+        JOIN leads l ON s.lead_id = l.id
+        WHERE s.id = ?
+    ''', (soumission_id,))
+    
+    result = cursor.fetchone()
+    if result:
+        entrepreneur_id, type_projet = result
+        titre = "❌ Soumission non retenue"
+        message = f"Votre soumission pour le projet '{type_projet}' n'a pas été retenue. Continuez à soumissionner !"
+        creer_notification('entrepreneur', entrepreneur_id, 'soumission_refusee', titre, message, soumission_id)
+    
+    conn.close()
+
+def notifier_nouveau_message(lead_id: int, entrepreneur_id: int, expediteur_type: str):
+    """Notifie qu'un nouveau message a été reçu"""
+    if expediteur_type == 'client':
+        # Notifier l'entrepreneur
+        titre = "💬 Nouveau message client"
+        message = "Vous avez reçu un nouveau message d'un client"
+        creer_notification('entrepreneur', entrepreneur_id, 'nouveau_message', titre, message, lead_id)
+    else:
+        # Notifier le client
+        titre = "💬 Nouveau message entrepreneur"
+        message = "Vous avez reçu un nouveau message d'un entrepreneur"
+        creer_notification('client', lead_id, 'nouveau_message', titre, message, lead_id)
+
 def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     """Récupère toutes les soumissions pour un projet"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -681,14 +851,27 @@ def main():
             help="Sélectionnez la section où vous voulez aller"
         )
         
-        # Notifications de messages non lus
+        # Notifications de messages non lus et notifications générales
         if st.session_state.get('entrepreneur_connecte'):
             entrepreneur = st.session_state.entrepreneur_connecte
             conversations = get_conversations_entrepreneur(entrepreneur.id)
             total_non_lus = sum(conv['non_lus'] for conv in conversations)
             
+            # Notifications générales
+            notifs_non_lues = count_notifications_non_lues('entrepreneur', entrepreneur.id)
+            
             if total_non_lus > 0:
                 st.markdown(f"**💬 Messages non lus : {total_non_lus}**")
+            
+            if notifs_non_lues > 0:
+                st.markdown(f"**🔔 Notifications : {notifs_non_lues}**")
+                if st.button("📱 Voir notifications", key="voir_notifs_entrepreneur"):
+                    st.session_state.mode_notifications = True
+                    st.session_state.notif_type_utilisateur = 'entrepreneur'
+                    st.session_state.notif_utilisateur_id = entrepreneur.id
+                    st.rerun()
+            
+            if total_non_lus > 0 or notifs_non_lues > 0:
                 st.markdown("---")
         
         st.markdown("**💡 Instructions :**")
@@ -711,6 +894,11 @@ def main():
     # Vérifier si on est en mode chat
     if st.session_state.get('mode_chat', False):
         page_chat()
+        return
+    
+    # Vérifier si on est en mode notifications
+    if st.session_state.get('mode_notifications', False):
+        page_notifications()
         return
     
     # Routing des pages
@@ -1000,7 +1188,26 @@ def page_nouveau_projet():
 def page_mes_projets():
     """Page pour consulter ses projets et soumissions"""
     
-    st.markdown("## 📋 Mes projets")
+    # En-tête avec notifications
+    col1, col2 = st.columns([4, 1])
+    with col1:
+        st.markdown("## 📋 Mes projets")
+    
+    with col2:
+        # Afficher notifications si client connecté
+        if 'client_email' in st.session_state:
+            # Utiliser l'ID du premier projet comme référence client (pas optimal mais fonctionnel)
+            projets = get_projets_par_email(st.session_state.client_email)
+            if projets:
+                client_id = projets[0]['id']
+                notifs_non_lues = count_notifications_non_lues('client', client_id)
+                
+                if notifs_non_lues > 0:
+                    if st.button(f"🔔 Notifications ({notifs_non_lues})", key="voir_notifs_client"):
+                        st.session_state.mode_notifications = True
+                        st.session_state.notif_type_utilisateur = 'client'
+                        st.session_state.notif_utilisateur_id = client_id
+                        st.rerun()
     
     # Demander l'email si pas en session
     if 'client_email' not in st.session_state:
@@ -1171,6 +1378,10 @@ def page_mes_projets():
                                         ''', (soum['id'],))
                                         conn.commit()
                                         conn.close()
+                                        
+                                        # Créer notification pour l'entrepreneur
+                                        notifier_soumission_acceptee(soum['id'])
+                                        
                                         st.success("Soumission acceptée!")
                                         st.rerun()
                                 else:
@@ -1186,6 +1397,10 @@ def page_mes_projets():
                                         ''', (soum['id'],))
                                         conn.commit()
                                         conn.close()
+                                        
+                                        # Créer notification pour l'entrepreneur
+                                        notifier_soumission_refusee(soum['id'])
+                                        
                                         st.info("Soumission refusée")
                                         st.rerun()
                             
@@ -1363,12 +1578,94 @@ def page_chat():
                     
                     # Envoyer le message
                     if envoyer_message(lead_id, entrepreneur_id, expediteur_type, expediteur_id, destinataire_id, message):
+                        # Créer notification pour le destinataire
+                        notifier_nouveau_message(lead_id, entrepreneur_id, expediteur_type)
+                        
                         st.success("Message envoyé!")
                         st.rerun()
                     else:
                         st.error("Erreur lors de l'envoi du message")
                 else:
                     st.warning("Veuillez saisir un message")
+
+def page_notifications():
+    """Centre de notifications"""
+    if 'mode_notifications' not in st.session_state or not st.session_state.mode_notifications:
+        return
+    
+    type_utilisateur = st.session_state.get('notif_type_utilisateur')
+    utilisateur_id = st.session_state.get('notif_utilisateur_id')
+    
+    if not type_utilisateur or not utilisateur_id:
+        st.error("Erreur: informations de notification manquantes")
+        return
+    
+    # En-tête
+    col1, col2, col3 = st.columns([5, 1, 1])
+    with col1:
+        st.markdown("## 🔔 Centre de notifications")
+    
+    with col2:
+        if st.button("✅ Tout marquer lu", key="marquer_tout_lu"):
+            if marquer_toutes_notifications_lues(type_utilisateur, utilisateur_id):
+                st.success("Toutes les notifications marquées comme lues")
+                st.rerun()
+    
+    with col3:
+        if st.button("❌ Fermer", key="fermer_notifications"):
+            st.session_state.mode_notifications = False
+            for key in ['notif_type_utilisateur', 'notif_utilisateur_id']:
+                if key in st.session_state:
+                    del st.session_state[key]
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Récupérer les notifications
+    notifications = get_notifications_utilisateur(type_utilisateur, utilisateur_id, 20)
+    
+    if not notifications:
+        st.info("🎉 Aucune notification pour le moment !")
+    else:
+        st.markdown(f"📋 **{len(notifications)} notification(s)**")
+        st.markdown("---")
+        
+        for notif in notifications:
+            # Style différent pour les notifications non lues
+            if not notif['lu']:
+                st.markdown(f"""
+                <div style="background-color: #E3F2FD; padding: 15px; border-radius: 10px; margin: 10px 0; border-left: 4px solid #2196F3;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <strong>{notif['titre']}</strong><br>
+                            {notif['message']}<br>
+                            <small style="color: #666;">{notif['date_creation'][:16] if notif['date_creation'] else ""}</small>
+                        </div>
+                        <div>
+                            <span style="background-color: #2196F3; color: white; padding: 3px 8px; border-radius: 12px; font-size: 12px;">NOUVEAU</span>
+                        </div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Bouton pour marquer comme lu
+                col1, col2 = st.columns([1, 5])
+                with col1:
+                    if st.button("✅ Lu", key=f"marquer_lu_{notif['id']}"):
+                        if marquer_notification_lue(notif['id']):
+                            st.rerun()
+            else:
+                st.markdown(f"""
+                <div style="background-color: #F5F5F5; padding: 15px; border-radius: 10px; margin: 10px 0;">
+                    <div>
+                        <strong>{notif['titre']}</strong><br>
+                        {notif['message']}<br>
+                        <small style="color: #666;">{notif['date_creation'][:16] if notif['date_creation'] else ""}</small>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("---")
 
 def page_espace_entrepreneur():
     """Espace entrepreneur pour consulter projets et soumettre"""
@@ -1693,6 +1990,9 @@ def page_espace_entrepreneur():
                                         )
                                         
                                         if sauvegarder_soumission(soumission):
+                                            # Créer notification pour le client
+                                            notifier_nouvelle_soumission(projet['id'])
+                                            
                                             st.success("✅ Soumission envoyée avec succès!")
                                             st.balloons()
                                             st.rerun()
