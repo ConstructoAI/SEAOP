@@ -1,0 +1,713 @@
+/* style.css - SoumissionsQuébec.ca - Basé sur EXPERTS IA */
+
+/* === VARIABLES CSS === */
+:root {
+    /* Couleurs principales - Exactement comme EXPERTS IA */
+    --primary-color: #3B82F6;
+    --primary-color-light: #93C5FD;
+    --primary-color-lighter: #DBEAFE;
+    --primary-color-darker: #2563EB;
+    --primary-color-darkest: #1D4ED8;
+    
+    /* Couleurs boutons */
+    --button-color: #1F2937;
+    --button-color-light: #374151;
+    --button-color-dark: #111827;
+    --button-color-darkest: #030712;
+    
+    /* Backgrounds */
+    --background-color: #FAFBFF;
+    --secondary-background-color: #F8FAFF;
+    --card-background: #F5F8FF;
+    --content-background: #FFFFFF;
+    
+    /* Texte */
+    --text-color: #1F2937;
+    --text-color-light: #6B7280;
+    --text-color-muted: #9CA3AF;
+    
+    /* Bordures */
+    --border-color: #E5E7EB;
+    --border-color-light: #F3F4F6;
+    --border-color-blue: #DBEAFE;
+    
+    /* Couleurs projet */
+    --project-success: #22C55E;
+    --project-success-light: #86EFAC;
+    --project-success-lighter: #DCFCE7;
+    --project-warning: #F59E0B;
+    --project-warning-light: #FCD34D;
+    --project-warning-lighter: #FEF3C7;
+    --project-danger: #EF4444;
+    --project-danger-light: #F87171;
+    --project-danger-lighter: #FEE2E2;
+    --project-info: #06B6D4;
+    --project-info-light: #67E8F9;
+    --project-info-lighter: #CFFAFE;
+    
+    /* Propriétés générales */
+    --border-radius-sm: 0.375rem;
+    --border-radius-md: 0.5rem;
+    --border-radius-lg: 0.75rem;
+    --border-radius-xl: 1rem;
+    --font-family: 'Inter', sans-serif;
+    --box-shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+    --box-shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --box-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
+    --box-shadow-blue: 0 4px 12px rgba(59, 130, 246, 0.15);
+    --animation-speed: 0.3s;
+    
+    /* Dégradés - Exactement comme EXPERTS IA */
+    --primary-gradient: linear-gradient(135deg, #3B82F6 0%, #1F2937 100%);
+    --secondary-gradient: linear-gradient(135deg, #DBEAFE 0%, #FFFFFF 100%);
+    --card-gradient: linear-gradient(135deg, #F5F8FF 0%, #FFFFFF 100%);
+    --button-gradient: linear-gradient(90deg, #3B82F6 0%, #1F2937 100%);
+    --button-gradient-hover: linear-gradient(90deg, #2563EB 0%, #111827 100%);
+    --subtle-blue: linear-gradient(90deg, #F8FAFF 0%, #FFFFFF 100%);
+    
+    /* Dégradés projet */
+    --project-gradient-success: linear-gradient(135deg, #DCFCE7 0%, #FFFFFF 100%);
+    --project-gradient-warning: linear-gradient(135deg, #FEF3C7 0%, #FFFFFF 100%);
+    --project-gradient-danger: linear-gradient(135deg, #FEE2E2 0%, #FFFFFF 100%);
+    --project-gradient-info: linear-gradient(135deg, #CFFAFE 0%, #FFFFFF 100%);
+}
+
+/* === RESET ET BASE === */
+body {
+    font-family: var(--font-family) !important;
+    color: var(--text-color);
+    background-color: var(--background-color);
+    line-height: 1.6;
+    font-size: 16px;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family) !important;
+    font-weight: 700 !important;
+    color: var(--text-color);
+    margin-bottom: 0.8em;
+    line-height: 1.3;
+}
+
+/* === ANIMATIONS === */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { transform: translateX(-20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    70% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+@keyframes pulse-lustrous {
+    0% {
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(59, 130, 246, 0.4);
+    }
+    70% {
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.1), 0 0 0 12px rgba(59, 130, 246, 0);
+    }
+    100% {
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.6), inset 0 -1px 0 rgba(0, 0, 0, 0.1), 0 0 0 0 rgba(59, 130, 246, 0);
+    }
+}
+
+@keyframes header-shine {
+    0%, 50% { left: -100%; }
+    100% { left: 100%; }
+}
+
+@keyframes subtle-header-pulse {
+    0% {
+        box-shadow: 0 8px 24px rgba(31, 41, 55, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 0 30px rgba(59, 130, 246, 0.2);
+    }
+    50% {
+        box-shadow: 0 8px 24px rgba(31, 41, 55, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 0 35px rgba(59, 130, 246, 0.3);
+    }
+    100% {
+        box-shadow: 0 8px 24px rgba(31, 41, 55, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 0 30px rgba(59, 130, 246, 0.2);
+    }
+}
+
+/* === SIDEBAR === */
+section[data-testid="stSidebar"] {
+    background: var(--card-gradient);
+    border-right: 1px solid var(--border-color-blue);
+    padding: 1.5rem;
+    box-shadow: 2px 0 10px rgba(30, 58, 138, 0.08);
+}
+
+section[data-testid="stSidebar"] .stHeadingContainer h1 {
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    margin-bottom: 1.5rem;
+}
+
+section[data-testid="stSidebar"] h3 {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-color-light);
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-subheader {
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-color-light);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* === BOUTONS PRINCIPAUX === */
+.stButton > button {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.4) 0%, var(--primary-color) 20%, var(--primary-color-darker) 80%, rgba(0, 0, 0, 0.2) 100%);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-md);
+    padding: 0.6rem 1.2rem;
+    font-weight: 600;
+    transition: all var(--animation-speed) ease;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+    width: 100%;
+    text-align: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.stButton > button::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+    transition: left 0.6s ease;
+    z-index: 1;
+}
+
+.stButton > button:hover::before { left: 100%; }
+
+.stButton > button:hover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.5) 0%, #60A5FA 20%, var(--primary-color-darker) 80%, rgba(0, 0, 0, 0.3) 100%);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.15), 0 0 20px rgba(59, 130, 246, 0.2);
+}
+
+.stButton > button:active {
+    background: linear-gradient(145deg, rgba(0, 0, 0, 0.1) 0%, var(--primary-color-darker) 20%, var(--primary-color-darkest) 80%, rgba(0, 0, 0, 0.4) 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* === BOUTONS SPÉCIALISÉS CONSTRUCTION === */
+.stButton[key="demande_soumission_button"] > button {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.5) 0%, #22C55E 15%, #16A34A 85%, rgba(0, 0, 0, 0.2) 100%) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    padding: 0.7rem 1.2rem !important;
+    box-shadow: 0 6px 12px rgba(34, 197, 94, 0.3), inset 0 2px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.1) !important;
+}
+
+.stButton[key="demande_soumission_button"] > button:hover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.6) 0%, #16A34A 15%, #15803D 85%, rgba(0, 0, 0, 0.3) 100%) !important;
+    transform: translateY(-4px) !important;
+    box-shadow: 0 10px 20px rgba(34, 197, 94, 0.4), inset 0 3px 0 rgba(255, 255, 255, 0.5), inset 0 -3px 0 rgba(0, 0, 0, 0.15), 0 0 25px rgba(34, 197, 94, 0.3) !important;
+}
+
+/* Bouton Se connecter entrepreneur */
+div.stButton > button:has(span:contains("Se connecter")) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.4) 0%, var(--primary-color) 20%, var(--primary-color-darker) 80%, rgba(0, 0, 0, 0.2) 100%) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600 !important;
+    padding: 0.7rem 1.2rem !important;
+    border-radius: var(--border-radius-md) !important;
+    transition: all var(--animation-speed) ease !important;
+    box-shadow: 0 4px 8px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3), inset 0 -1px 0 rgba(0, 0, 0, 0.1) !important;
+    width: 100% !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+div.stButton > button:has(span:contains("Se connecter"))::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.4) 50%, transparent 100%);
+    transition: left 0.6s ease;
+    z-index: 1;
+}
+
+div.stButton > button:has(span:contains("Se connecter")):hover::before { left: 100%; }
+
+div.stButton > button:has(span:contains("Se connecter")):hover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.5) 0%, #60A5FA 20%, var(--primary-color-darker) 80%, rgba(0, 0, 0, 0.3) 100%) !important;
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.4), inset 0 -2px 0 rgba(0, 0, 0, 0.15), 0 0 20px rgba(59, 130, 246, 0.2) !important;
+}
+
+div.stButton > button:has(span:contains("Se connecter"))::after {
+    content: "🔐 ";
+    position: relative;
+    z-index: 2;
+    margin-right: 8px;
+}
+
+/* Boutons d'action construction */
+div.stButton > button:has(span:contains("Accepter")) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.4) 0%, #22C55E 15%, #16A34A 85%, rgba(0, 0, 0, 0.2) 100%) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    border: none !important;
+    box-shadow: 0 4px 8px rgba(34, 197, 94, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+div.stButton > button:has(span:contains("Accepter"))::before { content: "✅ " !important; }
+
+div.stButton > button:has(span:contains("Refuser")) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.4) 0%, #EF4444 15%, #DC2626 85%, rgba(0, 0, 0, 0.2) 100%) !important;
+    color: white !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    padding: 0.5rem 1rem !important;
+}
+
+div.stButton > button:has(span:contains("Refuser"))::before { content: "❌ " !important; }
+
+div.stButton > button:has(span:contains("Déconnexion")) {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.4) 0%, #EF4444 15%, #DC2626 85%, rgba(0, 0, 0, 0.2) 100%) !important;
+    color: white !important;
+    font-weight: 500 !important;
+    font-size: 0.9rem !important;
+    padding: 0.5rem 1rem !important;
+}
+
+div.stButton > button:has(span:contains("Déconnexion"))::before { content: "🚪 " !important; }
+
+/* === MAIN CONTENT === */
+.main .block-container {
+    padding-top: 2.5rem;
+    padding-bottom: 5rem;
+    padding-left: 2rem;
+    padding-right: 2rem;
+    animation: fadeIn 0.8s ease-out;
+    background-color: var(--background-color);
+}
+
+.main .block-container h1 {
+    font-size: 1.8rem;
+    margin-bottom: 0.2em;
+    font-weight: 600;
+    animation: slideIn 0.6s ease-out;
+    display: inline-block;
+    background: var(--construction-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* === HEADERS === */
+.main-header, .project-header {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.3) 0%, #3B82F6 15%, #1F2937 85%, rgba(0, 0, 0, 0.4) 100%) !important;
+    padding: 25px 30px !important;
+    border-radius: 16px !important;
+    color: white !important;
+    text-align: center !important;
+    margin-bottom: 30px !important;
+    box-shadow: 0 8px 24px rgba(31, 41, 55, 0.35), inset 0 2px 0 rgba(255, 255, 255, 0.3), inset 0 -2px 0 rgba(0, 0, 0, 0.2), 0 0 30px rgba(59, 130, 246, 0.2) !important;
+    animation: fadeIn 0.8s ease-out, subtle-header-pulse 4s infinite !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.main-header::before, .project-header::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+    animation: header-shine 4s infinite;
+    z-index: 1;
+}
+
+.main-header h1, .main-header h2, .main-header p,
+.project-header h1, .project-header h2, .project-header p {
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+.main-header h1, .main-header h2, .project-header h2 {
+    margin: 0 !important;
+    font-size: 2.2rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6), 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+.main-header p, .project-header p {
+    margin-top: 12px !important;
+    margin-bottom: 0 !important;
+    font-size: 1.1rem !important;
+    color: rgba(255, 255, 255, 0.95) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    font-weight: 500 !important;
+}
+
+/* === CARDS SPÉCIFIQUES CONSTRUCTION === */
+.lead-card, .entrepreneur-card, .project-card {
+    background: var(--content-background);
+    border-radius: var(--border-radius-xl);
+    padding: 25px;
+    margin-bottom: 20px;
+    box-shadow: var(--box-shadow-sm);
+    transition: all var(--animation-speed) ease;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--border-color-blue);
+    animation: fadeIn 0.6s ease-out;
+}
+
+.lead-card::before, .project-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 4px;
+    background: var(--primary-gradient);
+    border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+}
+
+.entrepreneur-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 4px;
+    background: linear-gradient(90deg, #22C55E 0%, #16A34A 100%);
+    border-radius: var(--border-radius-xl) var(--border-radius-xl) 0 0;
+}
+
+.lead-card:hover, .entrepreneur-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    background: var(--secondary-gradient);
+    border-color: var(--primary-color-light);
+    box-shadow: var(--box-shadow-lg);
+}
+
+/* === STATUTS CONSTRUCTION === */
+.lead-status, .project-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    gap: 6px;
+}
+
+.lead-status.status-nouveau {
+    background: var(--project-gradient-info);
+    color: var(--project-info);
+    border: 1px solid var(--project-info-light);
+}
+
+.lead-status.status-nouveau::before { content: "🆕"; }
+
+.lead-status.status-attribue {
+    background: var(--project-gradient-warning);
+    color: var(--project-warning);
+    border: 1px solid var(--project-warning-light);
+}
+
+.lead-status.status-attribue::before { content: "👷"; }
+
+.lead-status.status-contacte {
+    background: var(--project-gradient-success);
+    color: var(--project-success);
+    border: 1px solid var(--project-success-light);
+}
+
+.lead-status.status-contacte::before { content: "📞"; }
+
+/* === BADGES BUDGETS === */
+.budget-high {
+    background: #22C55E;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.budget-medium {
+    background: #F59E0B;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.budget-low {
+    background: #6B7280;
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* === STATS CARDS === */
+.stat-card {
+    background: var(--primary-gradient);
+    color: white;
+    padding: 1rem;
+    border-radius: var(--border-radius-lg);
+    text-align: center;
+    margin: 0.5rem;
+    box-shadow: var(--box-shadow-md);
+    transition: all var(--animation-speed);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: -100%;
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.2) 50%, transparent 100%);
+    transition: left 0.6s ease;
+    z-index: 1;
+}
+
+.stat-card:hover::before { left: 100%; }
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--box-shadow-blue);
+}
+
+.stat-card h2, .stat-card h3, .stat-card p {
+    position: relative;
+    z-index: 2;
+    margin: 0;
+    color: white;
+}
+
+/* === FORMULAIRES === */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stSelectbox > div {
+    border-radius: var(--border-radius-md) !important;
+    border: 1px solid var(--border-color) !important;
+    background-color: var(--secondary-background-color) !important;
+    padding: 0.7rem 1rem !important;
+    transition: all var(--animation-speed) !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), inset 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(30, 58, 138, 0.2), inset 0 1px 3px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(30, 58, 138, 0.1) !important;
+    transform: translateY(-1px) !important;
+}
+
+/* === FILE UPLOADER === */
+.stFileUploader {
+    border: 2px dashed var(--border-color-blue);
+    border-radius: var(--border-radius-md);
+    background: var(--content-background);
+    padding: 1.5rem;
+    transition: all var(--animation-speed) ease;
+    margin-top: 0.5rem;
+    box-shadow: var(--box-shadow-sm);
+}
+
+.stFileUploader:hover {
+    border-color: var(--primary-color-light);
+    background: var(--primary-color-lighter);
+    transform: translateY(-2px);
+    box-shadow: var(--box-shadow-blue);
+}
+
+/* === ALERTES CONSTRUCTION === */
+.stAlert {
+    border-radius: var(--border-radius-md);
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+    animation: fadeIn 0.5s ease-out;
+    border: 1px solid;
+}
+
+[data-testid="stAlert"][kind="success"] {
+    background: linear-gradient(to right, #f0fdf4, #ffffff);
+    border-color: #bbf7d0;
+    color: #166534;
+}
+
+[data-testid="stAlert"][kind="error"] {
+    background: linear-gradient(to right, #fef2f2, #ffffff);
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+[data-testid="stAlert"][kind="warning"] {
+    background: var(--secondary-gradient);
+    border-color: var(--primary-color-lighter);
+    color: var(--primary-color-darker);
+}
+
+[data-testid="stAlert"][kind="info"] {
+    background: var(--secondary-gradient);
+    border-color: var(--primary-color-lighter);
+    color: var(--primary-color);
+}
+
+/* === TABLEAUX === */
+.stDataFrame table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 0.5rem 0 !important;
+    font-size: 14px !important;
+    background: white !important;
+    border-radius: 6px !important;
+    overflow: hidden !important;
+    box-shadow: var(--box-shadow-sm) !important;
+}
+
+.stDataFrame table th {
+    background: var(--primary-color) !important;
+    color: white !important;
+    padding: 0.8rem 0.5rem !important;
+    font-weight: 600 !important;
+    font-size: 12px !important;
+    text-align: left !important;
+    border: none !important;
+}
+
+.stDataFrame table td {
+    padding: 0.7rem 0.5rem !important;
+    border-bottom: 1px solid var(--border-color) !important;
+    font-size: 12px !important;
+    vertical-align: top !important;
+}
+
+.stDataFrame table tr:nth-child(even) td {
+    background: var(--card-background) !important;
+}
+
+.stDataFrame table tr:hover td {
+    background: var(--primary-color-lighter) !important;
+}
+
+/* === FOOTER === */
+.footer-container {
+    margin-top: 40px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color-blue);
+    font-size: 0.85rem;
+    color: var(--text-color-light);
+    text-align: center;
+    background: var(--subtle-blue);
+    border-radius: var(--border-radius-md);
+    padding: 20px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 768px) {
+    body { 
+        padding: 5px !important; 
+        font-size: 14px !important;
+    }
+    
+    .main-header, .project-header {
+        padding: 15px !important;
+        margin-bottom: 15px !important;
+        border-radius: 10px !important;
+    }
+    
+    .main-header h1, .main-header h2, .project-header h2 { 
+        font-size: 1.4rem !important; 
+        line-height: 1.3 !important;
+    }
+    
+    .main-header p, .project-header p { 
+        font-size: 0.9rem !important; 
+        margin-top: 8px !important;
+    }
+    
+    .stButton > button {
+        min-height: 48px !important;
+        font-size: 16px !important;
+        padding: 0.9rem 1rem !important;
+        margin-bottom: 10px !important;
+        width: 100% !important;
+        border-radius: 8px !important;
+    }
+    
+    .block-container {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
+        padding-top: 1rem !important;
+        max-width: 100% !important;
+    }
+    
+    .lead-card, .entrepreneur-card, .project-card {
+        padding: 15px !important;
+        margin-bottom: 12px !important;
+    }
+    
+    .stat-card {
+        margin: 0.25rem !important;
+        padding: 0.75rem !important;
+    }
+    
+    .footer-container {
+        font-size: 12px !important;
+        padding: 15px !important;
+        margin-bottom: 20px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    body { 
+        font-size: 13px !important;
+    }
+    
+    .main-header h1, .main-header h2, .project-header h2 { 
+        font-size: 1.2rem !important; 
+    }
+    
+    .main-header p, .project-header p { 
+        font-size: 0.85rem !important; 
+    }
+    
+    .stButton > button {
+        font-size: 15px !important;
+        padding: 0.8rem 0.8rem !important;
+    }
+}
