@@ -472,6 +472,108 @@ def get_conversations_entrepreneur(entrepreneur_id: int) -> List[Dict]:
     conn.close()
     return conversations
 
+# Fonctions de gestion des évaluations
+def ajouter_evaluation(soumission_id: int, evaluateur_type: str, note: int, commentaire: str = "") -> bool:
+    """Ajoute une évaluation pour une soumission"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            INSERT OR REPLACE INTO evaluations (soumission_id, evaluateur_type, note, commentaire)
+            VALUES (?, ?, ?, ?)
+        ''', (soumission_id, evaluateur_type, note, commentaire))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur lors de l'ajout de l'évaluation: {e}")
+        return False
+
+def get_evaluations_entrepreneur(entrepreneur_id: int) -> Dict:
+    """Récupère les statistiques d'évaluation d'un entrepreneur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT 
+            AVG(e.note) as note_moyenne,
+            COUNT(e.note) as nombre_evaluations,
+            COUNT(CASE WHEN e.note >= 4 THEN 1 END) as evaluations_positives
+        FROM evaluations e
+        JOIN soumissions s ON e.soumission_id = s.id
+        WHERE s.entrepreneur_id = ? AND e.evaluateur_type = 'client'
+    ''', (entrepreneur_id,))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result and result[0]:
+        return {
+            'note_moyenne': round(result[0], 1),
+            'nombre_evaluations': result[1],
+            'evaluations_positives': result[2],
+            'pourcentage_positif': round((result[2] / result[1] * 100), 1) if result[1] > 0 else 0
+        }
+    else:
+        return {
+            'note_moyenne': 0,
+            'nombre_evaluations': 0,
+            'evaluations_positives': 0,
+            'pourcentage_positif': 0
+        }
+
+def get_evaluation_soumission(soumission_id: int, evaluateur_type: str) -> Optional[Dict]:
+    """Récupère l'évaluation d'une soumission"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT note, commentaire, date_evaluation
+        FROM evaluations
+        WHERE soumission_id = ? AND evaluateur_type = ?
+    ''', (soumission_id, evaluateur_type))
+    
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        return {
+            'note': result[0],
+            'commentaire': result[1],
+            'date_evaluation': result[2]
+        }
+    return None
+
+def get_derniers_commentaires_entrepreneur(entrepreneur_id: int, limit: int = 5) -> List[Dict]:
+    """Récupère les derniers commentaires d'un entrepreneur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT e.note, e.commentaire, e.date_evaluation, l.type_projet
+        FROM evaluations e
+        JOIN soumissions s ON e.soumission_id = s.id
+        JOIN leads l ON s.lead_id = l.id
+        WHERE s.entrepreneur_id = ? AND e.evaluateur_type = 'client' 
+        AND e.commentaire IS NOT NULL AND e.commentaire != ''
+        ORDER BY e.date_evaluation DESC
+        LIMIT ?
+    ''', (entrepreneur_id, limit))
+    
+    commentaires = []
+    for row in cursor.fetchall():
+        commentaires.append({
+            'note': row[0],
+            'commentaire': row[1],
+            'date_evaluation': row[2][:10] if row[2] else "",
+            'type_projet': row[3]
+        })
+    
+    conn.close()
+    return commentaires
+
 def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     """Récupère toutes les soumissions pour un projet"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -479,10 +581,14 @@ def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     
     cursor.execute('''
         SELECT s.*, e.nom_entreprise, e.numero_rbq, e.certifications,
-               e.evaluations_moyenne, e.nombre_evaluations
+               COALESCE(AVG(ev.note), 0) as note_moyenne,
+               COUNT(ev.note) as nombre_evaluations
         FROM soumissions s
         JOIN entrepreneurs e ON s.entrepreneur_id = e.id
+        LEFT JOIN soumissions s2 ON s2.entrepreneur_id = e.id
+        LEFT JOIN evaluations ev ON ev.soumission_id = s2.id AND ev.evaluateur_type = 'client'
         WHERE s.lead_id = ?
+        GROUP BY s.id, e.nom_entreprise, e.numero_rbq, e.certifications
         ORDER BY s.date_creation DESC
     ''', (lead_id,))
     
@@ -502,11 +608,11 @@ def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
             'documents': row[10],
             'statut': row[11],
             'date_creation': row[12],
-            'nom_entreprise': row[16],
-            'numero_rbq': row[17],
-            'certifications': row[18],
-            'evaluations_moyenne': row[19],
-            'nombre_evaluations': row[20]
+            'nom_entreprise': row[14],
+            'numero_rbq': row[15],
+            'certifications': row[16],
+            'evaluations_moyenne': round(row[17], 1) if row[17] else 0,
+            'nombre_evaluations': row[18]
         })
     
     conn.close()
@@ -980,7 +1086,9 @@ def page_mes_projets():
                                 st.caption(f"RBQ: {soum['numero_rbq']}")
                             if soum['evaluations_moyenne'] > 0:
                                 stars = "⭐" * int(soum['evaluations_moyenne'])
-                                st.caption(f"{stars} ({soum['nombre_evaluations']} avis)")
+                                st.caption(f"{stars} {soum['evaluations_moyenne']}/5 ({soum['nombre_evaluations']} avis)")
+                            else:
+                                st.caption("Aucune évaluation encore")
                         
                         with col2:
                             st.metric("Montant", f"{soum['montant']:,.2f}$")
@@ -1089,6 +1197,46 @@ def page_mes_projets():
                                     st.session_state.chat_type_utilisateur = 'client'
                                     st.session_state.mode_chat = True
                                     st.rerun()
+                            
+                            # Section évaluation (visible seulement si soumission acceptée)
+                            if soum['statut'] == 'acceptee':
+                                st.markdown("---")
+                                st.markdown("### ⭐ Évaluer cet entrepreneur")
+                                
+                                # Vérifier si déjà évalué
+                                evaluation_existante = get_evaluation_soumission(soum['id'], 'client')
+                                
+                                if evaluation_existante:
+                                    st.success(f"✅ Vous avez déjà évalué : {evaluation_existante['note']}/5 ⭐")
+                                    if evaluation_existante['commentaire']:
+                                        st.info(f"💬 Votre commentaire : {evaluation_existante['commentaire']}")
+                                else:
+                                    with st.form(f"evaluation_{soum['id']}"):
+                                        col_eval1, col_eval2 = st.columns([1, 2])
+                                        
+                                        with col_eval1:
+                                            note = st.selectbox(
+                                                "Note sur 5",
+                                                options=[5, 4, 3, 2, 1],
+                                                format_func=lambda x: f"{x} ⭐" + (" - Excellent" if x==5 else " - Très bon" if x==4 else " - Correct" if x==3 else " - Moyen" if x==2 else " - Décevant"),
+                                                key=f"note_{soum['id']}"
+                                            )
+                                        
+                                        with col_eval2:
+                                            commentaire = st.text_area(
+                                                "Commentaire (optionnel)",
+                                                placeholder="Décrivez votre expérience avec cet entrepreneur...",
+                                                height=100,
+                                                key=f"comment_{soum['id']}"
+                                            )
+                                        
+                                        if st.form_submit_button("📝 Publier l'évaluation", type="primary"):
+                                            if ajouter_evaluation(soum['id'], 'client', note, commentaire):
+                                                st.success("✅ Évaluation publiée avec succès!")
+                                                st.balloons()
+                                                st.rerun()
+                                            else:
+                                                st.error("❌ Erreur lors de la publication de l'évaluation")
                         
                         st.markdown("---")
 
@@ -1325,7 +1473,7 @@ def page_espace_entrepreneur():
                 st.rerun()
         
         # Onglets
-        tab1, tab2, tab3 = st.tabs(["🔍 Projets disponibles", "📋 Mes soumissions", "👤 Mon profil"])
+        tab1, tab2, tab3, tab4 = st.tabs(["🔍 Projets disponibles", "📋 Mes soumissions", "⭐ Mes évaluations", "👤 Mon profil"])
         
         with tab1:
             st.markdown("### 🔍 Projets disponibles pour soumission")
@@ -1602,6 +1750,54 @@ def page_espace_entrepreneur():
                             st.error("Cette soumission n'a pas été retenue")
         
         with tab3:
+            st.markdown("### ⭐ Mes évaluations clients")
+            
+            # Récupérer les statistiques d'évaluation
+            stats_eval = get_evaluations_entrepreneur(entrepreneur.id)
+            
+            # Affichage des statistiques générales
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Note moyenne", f"{stats_eval['note_moyenne']}/5" if stats_eval['note_moyenne'] > 0 else "Aucune", 
+                         f"⭐" * int(stats_eval['note_moyenne']) if stats_eval['note_moyenne'] > 0 else "")
+            
+            with col2:
+                st.metric("Total évaluations", stats_eval['nombre_evaluations'])
+            
+            with col3:
+                st.metric("Évaluations positives", f"{stats_eval['evaluations_positives']}")
+            
+            with col4:
+                st.metric("% de satisfaction", f"{stats_eval['pourcentage_positif']}%")
+            
+            if stats_eval['nombre_evaluations'] > 0:
+                st.markdown("---")
+                st.markdown("### 💬 Derniers commentaires clients")
+                
+                commentaires = get_derniers_commentaires_entrepreneur(entrepreneur.id)
+                
+                if commentaires:
+                    for commentaire in commentaires:
+                        with st.container():
+                            col1, col2 = st.columns([1, 3])
+                            
+                            with col1:
+                                stars = "⭐" * commentaire['note']
+                                st.markdown(f"**{stars}**")
+                                st.caption(f"{commentaire['date_evaluation']}")
+                                st.caption(f"Projet: {commentaire['type_projet']}")
+                            
+                            with col2:
+                                st.markdown(f"*\"{commentaire['commentaire']}\"*")
+                            
+                            st.markdown("---")
+                else:
+                    st.info("Aucun commentaire détaillé encore")
+            else:
+                st.info("Aucune évaluation reçue pour le moment. Continuez à fournir un excellent service pour recevoir vos premières évaluations !")
+        
+        with tab4:
             st.markdown("### 👤 Mon profil d'entreprise")
             
             with st.form("profil_entrepreneur"):
