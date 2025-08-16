@@ -744,6 +744,190 @@ def notifier_nouveau_message(lead_id: int, entrepreneur_id: int, expediteur_type
         message = "Vous avez reçu un nouveau message d'un entrepreneur"
         creer_notification('client', lead_id, 'nouveau_message', titre, message, lead_id)
 
+# Fonctions de statistiques et dashboard
+def get_stats_client(client_email: str) -> Dict:
+    """Récupère les statistiques d'un client"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Projets du client
+    cursor.execute('''
+        SELECT COUNT(*) as nb_projets,
+               AVG(nb_soumissions) as moy_soumissions_par_projet
+        FROM (
+            SELECT l.id, COUNT(s.id) as nb_soumissions
+            FROM leads l
+            LEFT JOIN soumissions s ON l.id = s.lead_id
+            WHERE l.email = ?
+            GROUP BY l.id
+        )
+    ''', (client_email,))
+    
+    projets_stats = cursor.fetchone()
+    
+    # Montant moyen des soumissions
+    cursor.execute('''
+        SELECT AVG(s.montant) as montant_moyen,
+               COUNT(s.id) as total_soumissions,
+               COUNT(CASE WHEN s.statut = 'acceptee' THEN 1 END) as soumissions_acceptees
+        FROM soumissions s
+        JOIN leads l ON s.lead_id = l.id
+        WHERE l.email = ?
+    ''', (client_email,))
+    
+    soumissions_stats = cursor.fetchone()
+    
+    # Évolution mensuelle
+    cursor.execute('''
+        SELECT strftime('%Y-%m', l.date_creation) as mois,
+               COUNT(l.id) as nb_projets,
+               COUNT(s.id) as nb_soumissions
+        FROM leads l
+        LEFT JOIN soumissions s ON l.id = s.lead_id
+        WHERE l.email = ?
+        GROUP BY strftime('%Y-%m', l.date_creation)
+        ORDER BY mois DESC
+        LIMIT 6
+    ''', (client_email,))
+    
+    evolution_mensuelle = cursor.fetchall()
+    
+    conn.close()
+    
+    return {
+        'nb_projets': projets_stats[0] if projets_stats else 0,
+        'moy_soumissions_par_projet': round(projets_stats[1], 1) if projets_stats[1] else 0,
+        'montant_moyen_soumissions': round(soumissions_stats[0], 2) if soumissions_stats[0] else 0,
+        'total_soumissions': soumissions_stats[1] if soumissions_stats else 0,
+        'soumissions_acceptees': soumissions_stats[2] if soumissions_stats else 0,
+        'taux_acceptation': round((soumissions_stats[2] / soumissions_stats[1] * 100), 1) if soumissions_stats[1] and soumissions_stats[1] > 0 else 0,
+        'evolution_mensuelle': evolution_mensuelle
+    }
+
+def get_stats_entrepreneur(entrepreneur_id: int) -> Dict:
+    """Récupère les statistiques d'un entrepreneur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Statistiques générales des soumissions
+    cursor.execute('''
+        SELECT COUNT(*) as total_soumissions,
+               COUNT(CASE WHEN statut = 'acceptee' THEN 1 END) as soumissions_acceptees,
+               COUNT(CASE WHEN statut = 'refusee' THEN 1 END) as soumissions_refusees,
+               AVG(montant) as montant_moyen,
+               SUM(CASE WHEN statut = 'acceptee' THEN montant ELSE 0 END) as ca_total
+        FROM soumissions
+        WHERE entrepreneur_id = ?
+    ''', (entrepreneur_id,))
+    
+    soumissions_stats = cursor.fetchone()
+    
+    # Évolution mensuelle
+    cursor.execute('''
+        SELECT strftime('%Y-%m', date_creation) as mois,
+               COUNT(*) as nb_soumissions,
+               COUNT(CASE WHEN statut = 'acceptee' THEN 1 END) as nb_acceptees,
+               SUM(CASE WHEN statut = 'acceptee' THEN montant ELSE 0 END) as ca_mois
+        FROM soumissions
+        WHERE entrepreneur_id = ?
+        GROUP BY strftime('%Y-%m', date_creation)
+        ORDER BY mois DESC
+        LIMIT 6
+    ''', (entrepreneur_id,))
+    
+    evolution_mensuelle = cursor.fetchall()
+    
+    # Note moyenne actuelle
+    stats_eval = get_evaluations_entrepreneur(entrepreneur_id)
+    
+    conn.close()
+    
+    total_soum = soumissions_stats[0] if soumissions_stats else 0
+    acceptees = soumissions_stats[1] if soumissions_stats else 0
+    
+    return {
+        'total_soumissions': total_soum,
+        'soumissions_acceptees': acceptees,
+        'soumissions_refusees': soumissions_stats[2] if soumissions_stats else 0,
+        'taux_succes': round((acceptees / total_soum * 100), 1) if total_soum > 0 else 0,
+        'montant_moyen': round(soumissions_stats[3], 2) if soumissions_stats[3] else 0,
+        'ca_total': round(soumissions_stats[4], 2) if soumissions_stats[4] else 0,
+        'note_moyenne': stats_eval['note_moyenne'],
+        'nb_evaluations': stats_eval['nombre_evaluations'],
+        'evolution_mensuelle': evolution_mensuelle
+    }
+
+def get_stats_admin() -> Dict:
+    """Récupère les statistiques globales de la plateforme"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Statistiques générales
+    cursor.execute('''
+        SELECT 
+            (SELECT COUNT(*) FROM leads) as total_projets,
+            (SELECT COUNT(*) FROM entrepreneurs) as total_entrepreneurs,
+            (SELECT COUNT(*) FROM soumissions) as total_soumissions,
+            (SELECT SUM(CASE WHEN statut = 'acceptee' THEN montant ELSE 0 END) FROM soumissions) as ca_total
+    ''')
+    
+    stats_generales = cursor.fetchone()
+    
+    # Top entrepreneurs du mois
+    cursor.execute('''
+        SELECT e.nom_entreprise,
+               COUNT(s.id) as nb_soumissions,
+               COUNT(CASE WHEN s.statut = 'acceptee' THEN 1 END) as nb_acceptees,
+               SUM(CASE WHEN s.statut = 'acceptee' THEN s.montant ELSE 0 END) as ca_mois,
+               AVG(ev.note) as note_moyenne
+        FROM entrepreneurs e
+        LEFT JOIN soumissions s ON e.id = s.entrepreneur_id 
+            AND strftime('%Y-%m', s.date_creation) = strftime('%Y-%m', 'now')
+        LEFT JOIN evaluations ev ON s.id = ev.soumission_id AND ev.evaluateur_type = 'client'
+        GROUP BY e.id, e.nom_entreprise
+        HAVING nb_soumissions > 0
+        ORDER BY nb_acceptees DESC, ca_mois DESC
+        LIMIT 5
+    ''')
+    
+    top_entrepreneurs = cursor.fetchall()
+    
+    # Évolution mensuelle globale
+    cursor.execute('''
+        SELECT strftime('%Y-%m', date_creation) as mois,
+               COUNT(*) as nb_projets
+        FROM leads
+        GROUP BY strftime('%Y-%m', date_creation)
+        ORDER BY mois DESC
+        LIMIT 6
+    ''')
+    
+    evolution_projets = cursor.fetchall()
+    
+    cursor.execute('''
+        SELECT strftime('%Y-%m', date_creation) as mois,
+               COUNT(*) as nb_soumissions,
+               SUM(CASE WHEN statut = 'acceptee' THEN montant ELSE 0 END) as ca_mois
+        FROM soumissions
+        GROUP BY strftime('%Y-%m', date_creation)
+        ORDER BY mois DESC
+        LIMIT 6
+    ''')
+    
+    evolution_soumissions = cursor.fetchall()
+    
+    conn.close()
+    
+    return {
+        'total_projets': stats_generales[0] if stats_generales else 0,
+        'total_entrepreneurs': stats_generales[1] if stats_generales else 0,
+        'total_soumissions': stats_generales[2] if stats_generales else 0,
+        'ca_total': round(stats_generales[3], 2) if stats_generales[3] else 0,
+        'top_entrepreneurs': top_entrepreneurs,
+        'evolution_projets': evolution_projets,
+        'evolution_soumissions': evolution_soumissions
+    }
+
 def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     """Récupère toutes les soumissions pour un projet"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -1233,9 +1417,14 @@ def page_mes_projets():
             st.rerun()
         return
     
-    # Afficher les projets
-    for projet in projets:
-        with st.expander(f"🏗️ {projet['type_projet']} - {projet['numero_reference']}", expanded=True):
+    # Onglets pour séparer projets et dashboard
+    tab1, tab2 = st.tabs(["📋 Mes projets", "📊 Dashboard"])
+    
+    with tab1:
+        st.markdown("### 🏗️ Vos projets actifs")
+        # Afficher les projets
+        for projet in projets:
+            with st.expander(f"🏗️ {projet['type_projet']} - {projet['numero_reference']}", expanded=True):
             # Infos du projet
             col1, col2, col3 = st.columns(3)
             
@@ -1454,6 +1643,62 @@ def page_mes_projets():
                                                 st.error("❌ Erreur lors de la publication de l'évaluation")
                         
                         st.markdown("---")
+    
+    with tab2:
+        st.markdown("### 📊 Tableau de bord client")
+        
+        # Récupérer les statistiques
+        stats = get_stats_client(email)
+        
+        # Métriques principales
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Projets publiés", stats['nb_projets'])
+        
+        with col2:
+            st.metric("Soumissions reçues", stats['total_soumissions'])
+        
+        with col3:
+            st.metric("Soumissions acceptées", stats['soumissions_acceptees'])
+        
+        with col4:
+            st.metric("Taux d'acceptation", f"{stats['taux_acceptation']}%")
+        
+        st.markdown("---")
+        
+        # Statistiques détaillées
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("### 💰 Analyse financière")
+            if stats['montant_moyen_soumissions'] > 0:
+                st.metric("Montant moyen des soumissions", f"{stats['montant_moyen_soumissions']:,.2f} $")
+                st.metric("Soumissions par projet (moyenne)", stats['moy_soumissions_par_projet'])
+            else:
+                st.info("Aucune soumission reçue encore")
+        
+        with col2:
+            st.markdown("### 📈 Performance")
+            if stats['evolution_mensuelle']:
+                st.markdown("**Évolution mensuelle :**")
+                for mois, nb_projets, nb_soumissions in stats['evolution_mensuelle'][:3]:
+                    st.write(f"**{mois}** : {nb_projets} projet(s), {nb_soumissions} soumission(s)")
+            else:
+                st.info("Pas encore d'historique disponible")
+        
+        # Conseils et recommandations
+        st.markdown("---")
+        st.markdown("### 💡 Recommandations")
+        
+        if stats['nb_projets'] == 0:
+            st.info("🚀 Commencez par publier votre premier appel d'offres !")
+        elif stats['total_soumissions'] == 0:
+            st.warning("📢 Vos projets n'ont pas encore reçu de soumissions. Vérifiez vos descriptions et budgets.")
+        elif stats['taux_acceptation'] < 50 and stats['soumissions_acceptees'] > 0:
+            st.warning("⚡ Votre taux d'acceptation est bas. Considérez réviser vos critères de sélection.")
+        else:
+            st.success("✅ Excellent ! Votre utilisation de SEAOP est optimale.")
 
 def page_chat():
     """Interface de chat entre client et entrepreneur"""
@@ -1770,7 +2015,7 @@ def page_espace_entrepreneur():
                 st.rerun()
         
         # Onglets
-        tab1, tab2, tab3, tab4 = st.tabs(["🔍 Projets disponibles", "📋 Mes soumissions", "⭐ Mes évaluations", "👤 Mon profil"])
+        tab1, tab2, tab3, tab4, tab5 = st.tabs(["🔍 Projets disponibles", "📋 Mes soumissions", "⭐ Mes évaluations", "📊 Dashboard", "👤 Mon profil"])
         
         with tab1:
             st.markdown("### 🔍 Projets disponibles pour soumission")
@@ -2098,6 +2343,80 @@ def page_espace_entrepreneur():
                 st.info("Aucune évaluation reçue pour le moment. Continuez à fournir un excellent service pour recevoir vos premières évaluations !")
         
         with tab4:
+            st.markdown("### 📊 Tableau de bord entrepreneur")
+            
+            # Récupérer les statistiques
+            stats = get_stats_entrepreneur(entrepreneur.id)
+            
+            # Métriques principales
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Soumissions envoyées", stats['total_soumissions'])
+            
+            with col2:
+                st.metric("Projets remportés", stats['soumissions_acceptees'], 
+                         f"{stats['taux_succes']}%" if stats['taux_succes'] > 0 else "0%")
+            
+            with col3:
+                st.metric("Chiffre d'affaires", f"{stats['ca_total']:,.2f} $")
+            
+            with col4:
+                st.metric("Note moyenne", f"{stats['note_moyenne']}/5 ⭐" if stats['note_moyenne'] > 0 else "Aucune note")
+            
+            st.markdown("---")
+            
+            # Statistiques détaillées
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 💰 Performance financière")
+                if stats['total_soumissions'] > 0:
+                    st.metric("Montant moyen par soumission", f"{stats['montant_moyen']:,.2f} $")
+                    st.metric("Taux de succès", f"{stats['taux_succes']}%")
+                    if stats['taux_succes'] >= 70:
+                        st.success("🎯 Excellent taux de succès !")
+                    elif stats['taux_succes'] >= 40:
+                        st.warning("⚡ Taux de succès moyen")
+                    else:
+                        st.info("💪 Continuez vos efforts !")
+                else:
+                    st.info("Aucune soumission envoyée encore")
+            
+            with col2:
+                st.markdown("### 📈 Évolution mensuelle")
+                if stats['evolution_mensuelle']:
+                    st.markdown("**Activité récente :**")
+                    for mois, nb_soumissions, nb_acceptees, ca_mois in stats['evolution_mensuelle'][:3]:
+                        taux_mois = round((nb_acceptees / nb_soumissions * 100), 1) if nb_soumissions > 0 else 0
+                        st.write(f"**{mois}** : {nb_soumissions} soumission(s), {nb_acceptees} acceptée(s) ({taux_mois}%)")
+                        if ca_mois > 0:
+                            st.write(f"   💰 CA: {ca_mois:,.2f} $")
+                else:
+                    st.info("Pas encore d'historique disponible")
+            
+            # Conseils et recommandations
+            st.markdown("---")
+            st.markdown("### 💡 Recommandations pour améliorer vos performances")
+            
+            if stats['total_soumissions'] == 0:
+                st.info("🚀 Commencez par soumissionner sur vos premiers projets !")
+            elif stats['taux_succes'] < 30:
+                st.warning("📝 Votre taux de succès est bas. Considérez :")
+                st.write("- Réviser vos prix pour être plus compétitif")
+                st.write("- Améliorer la qualité de vos descriptions")
+                st.write("- Cibler des projets plus adaptés à votre expertise")
+            elif stats['note_moyenne'] > 0 and stats['note_moyenne'] < 3.5:
+                st.warning("⭐ Votre note moyenne est perfectible. Focalisez sur :")
+                st.write("- La qualité de votre service client")
+                st.write("- Le respect des délais annoncés")
+                st.write("- La communication avec vos clients")
+            else:
+                st.success("✅ Excellente performance ! Continuez sur cette lancée.")
+                if stats['nb_evaluations'] < 5:
+                    st.info("💬 Encouragez vos clients à vous évaluer pour augmenter votre visibilité.")
+        
+        with tab5:
             st.markdown("### 👤 Mon profil d'entreprise")
             
             with st.form("profil_entrepreneur"):
@@ -2171,50 +2490,72 @@ def page_administration():
                 st.session_state.admin_connecte = False
                 st.rerun()
         
-        # Statistiques
-        conn = sqlite3.connect(DATABASE_PATH)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT COUNT(*) FROM leads")
-        total_projets = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM entrepreneurs")
-        total_entrepreneurs = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT COUNT(*) FROM soumissions")
-        total_soumissions = cursor.fetchone()[0]
-        
-        cursor.execute("SELECT AVG(montant) FROM soumissions")
-        montant_moyen = cursor.fetchone()[0] or 0
-        
-        conn.close()
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Projets", total_projets)
-        with col2:
-            st.metric("Entrepreneurs", total_entrepreneurs)
-        with col3:
-            st.metric("Soumissions", total_soumissions)
-        with col4:
-            st.metric("Montant moyen", f"{montant_moyen:,.0f}$")
-        
-        # Tableaux de données
-        tab1, tab2, tab3 = st.tabs(["📋 Projets", "👷 Entrepreneurs", "📊 Soumissions"])
+        # Dashboard administrateur avec onglets
+        tab1, tab2, tab3 = st.tabs(["📊 Vue d'ensemble", "👥 Gestion des entrepreneurs", "📋 Gestion des soumissions"])
         
         with tab1:
-            conn = sqlite3.connect(DATABASE_PATH)
-            df_projets = pd.read_sql_query('''
-                SELECT id, numero_reference, nom, type_projet, budget, statut, date_creation
-                FROM leads
-                ORDER BY date_creation DESC
-            ''', conn)
-            conn.close()
+            st.markdown("### 📊 Statistiques globales de SEAOP")
             
-            st.dataframe(df_projets, use_container_width=True)
+            # Récupérer les statistiques complètes
+            stats = get_stats_admin()
+            
+            # Métriques principales
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Total projets", stats['total_projets'])
+            with col2:
+                st.metric("Entrepreneurs inscrits", stats['total_entrepreneurs'])
+            with col3:
+                st.metric("Soumissions envoyées", stats['total_soumissions'])
+            with col4:
+                st.metric("Volume d'affaires", f"{stats['ca_total']:,.2f} $")
+            
+            st.markdown("---")
+            
+            # Top entrepreneurs du mois
+            st.markdown("### 🏆 Top entrepreneurs du mois")
+            if stats['top_entrepreneurs']:
+                for i, (nom, nb_soum, nb_acc, ca, note) in enumerate(stats['top_entrepreneurs'], 1):
+                    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                    with col1:
+                        medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i}."
+                        st.write(f"{medal} **{nom}**")
+                    with col2:
+                        st.write(f"{nb_acc}/{nb_soum} projets")
+                    with col3:
+                        st.write(f"{ca:,.0f} $" if ca else "0 $")
+                    with col4:
+                        st.write(f"⭐ {note:.1f}" if note else "Pas de note")
+            else:
+                st.info("Aucune activité ce mois-ci")
+            
+            # Évolution de la plateforme
+            st.markdown("---")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("### 📈 Évolution des projets")
+                if stats['evolution_projets']:
+                    for mois, nb_projets in stats['evolution_projets'][:6]:
+                        st.write(f"**{mois}** : {nb_projets} projet(s)")
+                else:
+                    st.info("Pas d'historique disponible")
+            
+            with col2:
+                st.markdown("### 💰 Évolution du chiffre d'affaires")
+                if stats['evolution_soumissions']:
+                    for mois, nb_soum, ca in stats['evolution_soumissions'][:6]:
+                        st.write(f"**{mois}** : {nb_soum} soumission(s)")
+                        if ca > 0:
+                            st.write(f"   💰 {ca:,.2f} $")
+                else:
+                    st.info("Pas d'historique disponible")
         
         with tab2:
+            st.markdown("### 👥 Gestion des entrepreneurs")
+            
+            # Afficher le tableau des entrepreneurs
             conn = sqlite3.connect(DATABASE_PATH)
             df_entrepreneurs = pd.read_sql_query('''
                 SELECT id, nom_entreprise, email, numero_rbq, abonnement, date_inscription
@@ -2224,8 +2565,48 @@ def page_administration():
             conn.close()
             
             st.dataframe(df_entrepreneurs, use_container_width=True)
+            
+            # Statistiques des entrepreneurs
+            st.markdown("---")
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                actifs_ce_mois = len([e for e in stats['top_entrepreneurs'] if e[1] > 0])
+                st.metric("Entrepreneurs actifs ce mois", actifs_ce_mois)
+            
+            with col2:
+                if df_entrepreneurs is not None and len(df_entrepreneurs) > 0:
+                    nouveaux_ce_mois = len(df_entrepreneurs[df_entrepreneurs['date_inscription'].str.startswith(datetime.datetime.now().strftime('%Y-%m'))])
+                    st.metric("Nouveaux ce mois", nouveaux_ce_mois)
+                else:
+                    st.metric("Nouveaux ce mois", 0)
+            
+            with col3:
+                # Calcul de la note moyenne globale
+                conn = sqlite3.connect(DATABASE_PATH)
+                cursor = conn.cursor()
+                cursor.execute('SELECT AVG(note) FROM evaluations WHERE evaluateur_type = "client"')
+                note_moyenne_globale = cursor.fetchone()[0] or 0
+                conn.close()
+                st.metric("Note moyenne plateforme", f"{note_moyenne_globale:.1f}/5 ⭐" if note_moyenne_globale > 0 else "Aucune")
         
         with tab3:
+            st.markdown("### 📋 Gestion des soumissions et projets")
+            
+            # Afficher le tableau des projets d'abord
+            st.markdown("#### 🏗️ Projets récents")
+            conn = sqlite3.connect(DATABASE_PATH)
+            df_projets = pd.read_sql_query('''
+                SELECT id, numero_reference, nom, type_projet, budget, statut, date_creation
+                FROM leads
+                ORDER BY date_creation DESC
+                LIMIT 10
+            ''', conn)
+            conn.close()
+            
+            st.dataframe(df_projets, use_container_width=True)
+            
+            st.markdown("#### 📊 Soumissions récentes")
             conn = sqlite3.connect(DATABASE_PATH)
             df_soumissions = pd.read_sql_query('''
                 SELECT s.id, e.nom_entreprise, l.type_projet, s.montant, s.statut, s.date_creation
