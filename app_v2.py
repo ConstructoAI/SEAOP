@@ -1658,137 +1658,137 @@ def page_mes_projets():
         # Afficher les projets filtrés
         for projet in projets_filtres:
             with st.expander(f"🏗️ {projet['type_projet']} - {projet['numero_reference']}", expanded=True):
-            # Infos du projet
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.markdown("**Détails du projet:**")
-                st.write(f"Budget: {projet['budget']}")
-                st.write(f"Délai: {projet['delai_realisation']}")
-                st.write(f"Code postal: {projet['code_postal']}")
-            
-            with col2:
-                st.markdown("**Statut:**")
+                # Infos du projet
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.markdown("**Détails du projet:**")
+                    st.write(f"Budget: {projet['budget']}")
+                    st.write(f"Délai: {projet['delai_realisation']}")
+                    st.write(f"Code postal: {projet['code_postal']}")
+                
+                with col2:
+                    st.markdown("**Statut:**")
+                    if projet['nb_soumissions'] > 0:
+                        st.success(f"📋 {projet['nb_soumissions']} soumission(s) reçue(s)")
+                    else:
+                        st.info("En attente de soumissions")
+                    
+                    if projet['nb_acceptees'] > 0:
+                        st.success("✅ Soumission acceptée")
+                
+                with col3:
+                    st.markdown("**Actions:**")
+                    if projet['accepte_soumissions']:
+                        if st.button(f"🔒 Fermer les soumissions", key=f"fermer_{projet['id']}"):
+                            # Fermer les soumissions
+                            conn = sqlite3.connect(DATABASE_PATH)
+                            cursor = conn.cursor()
+                            cursor.execute('''
+                                UPDATE leads SET accepte_soumissions = 0 WHERE id = ?
+                            ''', (projet['id'],))
+                            conn.commit()
+                            conn.close()
+                            st.success("Soumissions fermées")
+                            st.rerun()
+                    else:
+                        st.caption("Soumissions fermées")
+                
+                # Description
+                st.markdown("**Description:**")
+                st.text_area("", value=projet['description'], height=100, disabled=True, key=f"desc_{projet['id']}")
+                
+                # Soumissions reçues
                 if projet['nb_soumissions'] > 0:
-                    st.success(f"📋 {projet['nb_soumissions']} soumission(s) reçue(s)")
-                else:
-                    st.info("En attente de soumissions")
-                
-                if projet['nb_acceptees'] > 0:
-                    st.success("✅ Soumission acceptée")
-            
-            with col3:
-                st.markdown("**Actions:**")
-                if projet['accepte_soumissions']:
-                    if st.button(f"🔒 Fermer les soumissions", key=f"fermer_{projet['id']}"):
-                        # Fermer les soumissions
-                        conn = sqlite3.connect(DATABASE_PATH)
-                        cursor = conn.cursor()
-                        cursor.execute('''
-                            UPDATE leads SET accepte_soumissions = 0 WHERE id = ?
-                        ''', (projet['id'],))
-                        conn.commit()
-                        conn.close()
-                        st.success("Soumissions fermées")
-                        st.rerun()
-                else:
-                    st.caption("Soumissions fermées")
-            
-            # Description
-            st.markdown("**Description:**")
-            st.text_area("", value=projet['description'], height=100, disabled=True, key=f"desc_{projet['id']}")
-            
-            # Soumissions reçues
-            if projet['nb_soumissions'] > 0:
-                st.markdown("---")
-                st.markdown("### 📊 Soumissions reçues")
-                
-                soumissions = get_soumissions_pour_projet(projet['id'])
-                
-                for i, soum in enumerate(soumissions):
-                    with st.container():
-                        col1, col2, col3 = st.columns([2, 1, 1])
-                        
-                        with col1:
-                            st.markdown(f"**{soum['nom_entreprise']}**")
-                            if soum['numero_rbq']:
-                                st.caption(f"RBQ: {soum['numero_rbq']}")
-                            if soum['evaluations_moyenne'] > 0:
-                                stars = "⭐" * int(soum['evaluations_moyenne'])
-                                st.caption(f"{stars} {soum['evaluations_moyenne']}/5 ({soum['nombre_evaluations']} avis)")
-                            else:
-                                st.caption("Aucune évaluation encore")
-                        
-                        with col2:
-                            st.metric("Montant", f"{soum['montant']:,.2f}$")
-                        
-                        with col3:
-                            st.caption(f"Délai: {soum['delai_execution']}")
-                            st.caption(f"Validité: {soum['validite_offre']}")
-                        
-                        # Détails de la soumission
-                        with st.expander(f"Voir les détails de la soumission"):
-                            st.markdown("**Description des travaux:**")
-                            st.text_area("", value=soum['description_travaux'], height=200, disabled=True, key=f"travaux_{soum['id']}")
+                    st.markdown("---")
+                    st.markdown("### 📊 Soumissions reçues")
+                    
+                    soumissions = get_soumissions_pour_projet(projet['id'])
+                    
+                    for i, soum in enumerate(soumissions):
+                        with st.container():
+                            col1, col2, col3 = st.columns([2, 1, 1])
                             
-                            col1, col2 = st.columns(2)
                             with col1:
-                                st.markdown("**Inclusions:**")
-                                st.text_area("", value=soum['inclusions'] or "Non spécifié", height=100, disabled=True, key=f"incl_{soum['id']}")
+                                st.markdown(f"**{soum['nom_entreprise']}**")
+                                if soum['numero_rbq']:
+                                    st.caption(f"RBQ: {soum['numero_rbq']}")
+                                if soum['evaluations_moyenne'] > 0:
+                                    stars = "⭐" * int(soum['evaluations_moyenne'])
+                                    st.caption(f"{stars} {soum['evaluations_moyenne']}/5 ({soum['nombre_evaluations']} avis)")
+                                else:
+                                    st.caption("Aucune évaluation encore")
                             
                             with col2:
-                                st.markdown("**Exclusions:**")
-                                st.text_area("", value=soum['exclusions'] or "Non spécifié", height=100, disabled=True, key=f"excl_{soum['id']}")
+                                st.metric("Montant", f"{soum['montant']:,.2f}$")
                             
-                            st.markdown("**Conditions:**")
-                            st.text_area("", value=soum['conditions'] or "Non spécifié", height=80, disabled=True, key=f"cond_{soum['id']}")
+                            with col3:
+                                st.caption(f"Délai: {soum['delai_execution']}")
+                                st.caption(f"Validité: {soum['validite_offre']}")
                             
-                            # Affichage des pièces jointes de la soumission
-                            if soum['documents']:
-                                st.markdown("---")
-                                st.markdown("### 📎 Documents joints à la soumission")
+                            # Détails de la soumission
+                            with st.expander(f"Voir les détails de la soumission"):
+                                st.markdown("**Description des travaux:**")
+                                st.text_area("", value=soum['description_travaux'], height=200, disabled=True, key=f"travaux_{soum['id']}")
                                 
-                                try:
-                                    # Format: "filename1:base64data1|filename2:base64data2"
-                                    documents_list = soum['documents'].split('|')
+                                col1, col2 = st.columns(2)
+                                with col1:
+                                    st.markdown("**Inclusions:**")
+                                    st.text_area("", value=soum['inclusions'] or "Non spécifié", height=100, disabled=True, key=f"incl_{soum['id']}")
+                                
+                                with col2:
+                                    st.markdown("**Exclusions:**")
+                                    st.text_area("", value=soum['exclusions'] or "Non spécifié", height=100, disabled=True, key=f"excl_{soum['id']}")
+                                
+                                st.markdown("**Conditions:**")
+                                st.text_area("", value=soum['conditions'] or "Non spécifié", height=80, disabled=True, key=f"cond_{soum['id']}")
+                                
+                                # Affichage des pièces jointes de la soumission
+                                if soum['documents']:
+                                    st.markdown("---")
+                                    st.markdown("### 📎 Documents joints à la soumission")
                                     
-                                    cols = st.columns(min(3, len(documents_list)))
-                                    
-                                    for i, doc_entry in enumerate(documents_list):
-                                        if ':' in doc_entry:
-                                            filename, doc_base64 = doc_entry.split(':', 1)
-                                            
-                                            with cols[i % 3]:
-                                                try:
-                                                    doc_data = base64.b64decode(doc_base64)
-                                                    
-                                                    # Déterminer le type MIME basé sur l'extension
-                                                    if filename.lower().endswith('.pdf'):
-                                                        mime_type = "application/pdf"
-                                                    elif filename.lower().endswith(('.doc', '.docx')):
-                                                        mime_type = "application/msword"
-                                                    elif filename.lower().endswith(('.xls', '.xlsx')):
-                                                        mime_type = "application/vnd.ms-excel"
-                                                    elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
-                                                        mime_type = "image/png"
-                                                    else:
-                                                        mime_type = "application/octet-stream"
-                                                    
-                                                    st.download_button(
-                                                        f"📄 {filename}",
-                                                        data=doc_data,
-                                                        file_name=filename,
-                                                        mime=mime_type,
-                                                        key=f"download_{soum['id']}_{i}",
-                                                        use_container_width=True
-                                                    )
-                                                except Exception as e:
-                                                    st.error(f"Erreur lors du chargement de {filename}")
-                                except Exception as e:
-                                    st.error("Erreur lors du traitement des documents")
-                            
-                            # Actions sur la soumission
-                            col1, col2, col3 = st.columns(3)
+                                    try:
+                                        # Format: "filename1:base64data1|filename2:base64data2"
+                                        documents_list = soum['documents'].split('|')
+                                        
+                                        cols = st.columns(min(3, len(documents_list)))
+                                        
+                                        for i, doc_entry in enumerate(documents_list):
+                                            if ':' in doc_entry:
+                                                filename, doc_base64 = doc_entry.split(':', 1)
+                                                
+                                                with cols[i % 3]:
+                                                    try:
+                                                        doc_data = base64.b64decode(doc_base64)
+                                                        
+                                                        # Déterminer le type MIME basé sur l'extension
+                                                        if filename.lower().endswith('.pdf'):
+                                                            mime_type = "application/pdf"
+                                                        elif filename.lower().endswith(('.doc', '.docx')):
+                                                            mime_type = "application/msword"
+                                                        elif filename.lower().endswith(('.xls', '.xlsx')):
+                                                            mime_type = "application/vnd.ms-excel"
+                                                        elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                                            mime_type = "image/png"
+                                                        else:
+                                                            mime_type = "application/octet-stream"
+                                                        
+                                                        st.download_button(
+                                                            f"📄 {filename}",
+                                                            data=doc_data,
+                                                            file_name=filename,
+                                                            mime=mime_type,
+                                                            key=f"download_{soum['id']}_{i}",
+                                                            use_container_width=True
+                                                        )
+                                                    except Exception as e:
+                                                        st.error(f"Erreur lors du chargement de {filename}")
+                                    except Exception as e:
+                                        st.error("Erreur lors du traitement des documents")
+                                
+                                # Actions sur la soumission
+                                col1, col2, col3 = st.columns(3)
                             
                             with col1:
                                 if soum['statut'] != 'acceptee':
