@@ -102,6 +102,67 @@ class Soumission:
     notes_entrepreneur: str = ""
 
 # Fonctions utilitaires
+def check_and_migrate_database():
+    """Vérifie et migre automatiquement la base de données si nécessaire"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Vérifier si les colonnes d'urgence existent
+        cursor.execute("PRAGMA table_info(leads)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        # Colonnes requises pour le système d'urgence
+        required_columns = ['date_limite_soumissions', 'date_debut_souhaite', 'niveau_urgence']
+        missing_columns = [col for col in required_columns if col not in columns]
+        
+        if missing_columns:
+            print(f"Migration automatique : ajout des colonnes {missing_columns}")
+            
+            # Ajouter les colonnes manquantes
+            for column in missing_columns:
+                if column == 'date_limite_soumissions':
+                    cursor.execute('ALTER TABLE leads ADD COLUMN date_limite_soumissions DATE')
+                elif column == 'date_debut_souhaite':
+                    cursor.execute('ALTER TABLE leads ADD COLUMN date_debut_souhaite DATE')
+                elif column == 'niveau_urgence':
+                    cursor.execute('ALTER TABLE leads ADD COLUMN niveau_urgence TEXT DEFAULT "normal"')
+            
+            # Mettre à jour les projets existants avec des valeurs par défaut
+            cursor.execute('''
+                UPDATE leads 
+                SET 
+                    date_limite_soumissions = COALESCE(date_limite_soumissions, date(date_creation, '+14 days')),
+                    date_debut_souhaite = COALESCE(date_debut_souhaite, date(date_creation, '+30 days')),
+                    niveau_urgence = COALESCE(niveau_urgence, 'normal')
+                WHERE id > 0
+            ''')
+            
+            print(f"Migration automatique terminée : {cursor.rowcount} projets mis à jour")
+        
+        # Vérifier et créer la table notifications
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS notifications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                utilisateur_type TEXT NOT NULL,
+                utilisateur_id INTEGER NOT NULL,
+                type_notification TEXT NOT NULL,
+                titre TEXT NOT NULL,
+                message TEXT NOT NULL,
+                lien_id INTEGER,
+                lu BOOLEAN DEFAULT 0,
+                date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        
+        conn.commit()
+        
+    except Exception as e:
+        print(f"Erreur lors de la migration automatique: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
 def init_database():
     """Initialise la base de données SQLite avec toutes les tables"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -1229,6 +1290,8 @@ def get_mes_projets(email: str) -> List[Dict]:
 
 # Interface principale
 def main():
+    # Migration automatique et initialisation
+    check_and_migrate_database()
     init_database()
     
     # Header principal
