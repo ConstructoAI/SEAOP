@@ -928,6 +928,188 @@ def get_stats_admin() -> Dict:
         'evolution_soumissions': evolution_soumissions
     }
 
+# Fonctions de recherche et filtrage
+def filtrer_projets_pour_entrepreneurs(
+    type_projet: str = None,
+    budget_min: float = None,
+    budget_max: float = None,
+    code_postal: str = None,
+    delai_max: str = None,
+    recherche_texte: str = None
+) -> List[Dict]:
+    """Filtre les projets disponibles selon les critères"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    # Construction de la requête dynamique
+    query = '''
+        SELECT l.*, 
+               (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id) as nb_soumissions
+        FROM leads l
+        WHERE l.visible_entrepreneurs = 1 AND l.accepte_soumissions = 1
+    '''
+    params = []
+    
+    if type_projet and type_projet != "Tous":
+        query += " AND l.type_projet = ?"
+        params.append(type_projet)
+    
+    if budget_min is not None:
+        # Extraire le montant numérique du budget (format: "10 000 - 25 000 $")
+        query += " AND CAST(REPLACE(REPLACE(SUBSTR(l.budget, 1, INSTR(l.budget, ' ') - 1), ' ', ''), '$', '') AS INTEGER) >= ?"
+        params.append(budget_min)
+    
+    if budget_max is not None:
+        query += " AND CAST(REPLACE(REPLACE(SUBSTR(l.budget, 1, INSTR(l.budget, ' ') - 1), ' ', ''), '$', '') AS INTEGER) <= ?"
+        params.append(budget_max)
+    
+    if code_postal:
+        query += " AND l.code_postal LIKE ?"
+        params.append(f"{code_postal}%")
+    
+    if recherche_texte:
+        query += " AND (l.description LIKE ? OR l.type_projet LIKE ? OR l.nom LIKE ?)"
+        params.extend([f"%{recherche_texte}%", f"%{recherche_texte}%", f"%{recherche_texte}%"])
+    
+    query += " ORDER BY l.date_creation DESC"
+    
+    cursor.execute(query, params)
+    
+    projets = []
+    for row in cursor.fetchall():
+        projets.append({
+            'id': row[0], 'nom': row[1], 'email': row[2], 'telephone': row[3],
+            'code_postal': row[4], 'type_projet': row[5], 'description': row[6],
+            'budget': row[7], 'delai_realisation': row[8], 'photos': row[9],
+            'plans': row[10], 'documents': row[11], 'date_creation': row[12],
+            'statut': row[13], 'numero_reference': row[14],
+            'visible_entrepreneurs': row[15], 'accepte_soumissions': row[16],
+            'nb_soumissions': row[17]
+        })
+    
+    conn.close()
+    return projets
+
+def filtrer_mes_projets(
+    email: str,
+    statut: str = None,
+    periode: str = None,
+    type_projet: str = None,
+    recherche_texte: str = None
+) -> List[Dict]:
+    """Filtre les projets d'un client selon les critères"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT l.*,
+               (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id) as nb_soumissions,
+               (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id AND s.statut = 'acceptee') as nb_acceptees
+        FROM leads l
+        WHERE l.email = ?
+    '''
+    params = [email]
+    
+    if statut and statut != "Tous":
+        if statut == "Avec soumissions":
+            query += " AND (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id) > 0"
+        elif statut == "Sans soumissions":
+            query += " AND (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id) = 0"
+        elif statut == "Projet terminé":
+            query += " AND (SELECT COUNT(*) FROM soumissions s WHERE s.lead_id = l.id AND s.statut = 'acceptee') > 0"
+    
+    if periode and periode != "Toutes":
+        if periode == "Cette semaine":
+            query += " AND l.date_creation >= date('now', '-7 days')"
+        elif periode == "Ce mois":
+            query += " AND l.date_creation >= date('now', 'start of month')"
+        elif periode == "Ce trimestre":
+            query += " AND l.date_creation >= date('now', '-3 months')"
+    
+    if type_projet and type_projet != "Tous":
+        query += " AND l.type_projet = ?"
+        params.append(type_projet)
+    
+    if recherche_texte:
+        query += " AND (l.description LIKE ? OR l.type_projet LIKE ? OR l.numero_reference LIKE ?)"
+        params.extend([f"%{recherche_texte}%", f"%{recherche_texte}%", f"%{recherche_texte}%"])
+    
+    query += " ORDER BY l.date_creation DESC"
+    
+    cursor.execute(query, params)
+    
+    projets = []
+    for row in cursor.fetchall():
+        projets.append({
+            'id': row[0], 'nom': row[1], 'email': row[2], 'telephone': row[3],
+            'code_postal': row[4], 'type_projet': row[5], 'description': row[6],
+            'budget': row[7], 'delai_realisation': row[8], 'photos': row[9],
+            'plans': row[10], 'documents': row[11], 'date_creation': row[12],
+            'statut': row[13], 'numero_reference': row[14],
+            'visible_entrepreneurs': row[15], 'accepte_soumissions': row[16],
+            'nb_soumissions': row[17], 'nb_acceptees': row[18]
+        })
+    
+    conn.close()
+    return projets
+
+def filtrer_soumissions_entrepreneur(
+    entrepreneur_id: int,
+    statut: str = None,
+    periode: str = None,
+    montant_min: float = None,
+    montant_max: float = None
+) -> List[Dict]:
+    """Filtre les soumissions d'un entrepreneur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    query = '''
+        SELECT s.*, l.type_projet, l.nom as nom_client, l.numero_reference
+        FROM soumissions s
+        JOIN leads l ON s.lead_id = l.id
+        WHERE s.entrepreneur_id = ?
+    '''
+    params = [entrepreneur_id]
+    
+    if statut and statut != "Tous":
+        query += " AND s.statut = ?"
+        params.append(statut)
+    
+    if periode and periode != "Toutes":
+        if periode == "Ce mois":
+            query += " AND s.date_creation >= date('now', 'start of month')"
+        elif periode == "Ce trimestre":
+            query += " AND s.date_creation >= date('now', '-3 months')"
+        elif periode == "Cette année":
+            query += " AND s.date_creation >= date('now', 'start of year')"
+    
+    if montant_min is not None:
+        query += " AND s.montant >= ?"
+        params.append(montant_min)
+    
+    if montant_max is not None:
+        query += " AND s.montant <= ?"
+        params.append(montant_max)
+    
+    query += " ORDER BY s.date_creation DESC"
+    
+    cursor.execute(query, params)
+    
+    soumissions = []
+    for row in cursor.fetchall():
+        soumissions.append({
+            'id': row[0], 'lead_id': row[1], 'entrepreneur_id': row[2],
+            'montant': row[3], 'description_travaux': row[4], 'delai_execution': row[5],
+            'validite_offre': row[6], 'inclusions': row[7], 'exclusions': row[8],
+            'conditions': row[9], 'documents': row[10], 'statut': row[11],
+            'date_creation': row[12], 'type_projet': row[14],
+            'nom_client': row[15], 'numero_reference': row[16]
+        })
+    
+    conn.close()
+    return soumissions
+
 def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     """Récupère toutes les soumissions pour un projet"""
     conn = sqlite3.connect(DATABASE_PATH)
@@ -1422,8 +1604,59 @@ def page_mes_projets():
     
     with tab1:
         st.markdown("### 🏗️ Vos projets actifs")
-        # Afficher les projets
-        for projet in projets:
+        
+        # Interface de filtrage pour les projets clients
+        with st.expander("🔍 Filtres mes projets", expanded=False):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                recherche_client = st.text_input(
+                    "🔍 Recherche",
+                    placeholder="Description, type, référence...",
+                    key="recherche_client_projets"
+                )
+                
+                statut_client_filtre = st.selectbox(
+                    "📊 Statut",
+                    ["Tous", "Avec soumissions", "Sans soumissions", "Projet terminé"],
+                    key="statut_client_filtre"
+                )
+            
+            with col2:
+                periode_client_filtre = st.selectbox(
+                    "📅 Période",
+                    ["Toutes", "Cette semaine", "Ce mois", "Ce trimestre"],
+                    key="periode_client_filtre"
+                )
+                
+                type_projet_client_filtre = st.selectbox(
+                    "🏗️ Type de projet",
+                    ["Tous", "Rénovation résidentielle", "Construction neuve", "Rénovation commerciale", 
+                     "Toiture", "Plomberie", "Électricité", "Paysagement", "Autres"],
+                    key="type_projet_client_filtre"
+                )
+            
+            with col3:
+                trier_projets_client = st.selectbox(
+                    "📊 Trier par",
+                    ["Date (plus récent)", "Date (plus ancien)", "Nb soumissions (décroissant)", "Nb soumissions (croissant)"],
+                    key="tri_projets_client"
+                )
+        
+        # Application des filtres
+        projets_filtres = filtrer_mes_projets(
+            email=email,
+            statut=statut_client_filtre if statut_client_filtre != "Tous" else None,
+            periode=periode_client_filtre if periode_client_filtre != "Toutes" else None,
+            type_projet=type_projet_client_filtre if type_projet_client_filtre != "Tous" else None,
+            recherche_texte=recherche_client if recherche_client else None
+        )
+        
+        # Affichage des résultats
+        st.markdown(f"**{len(projets_filtres)} projet(s) trouvé(s)**")
+        
+        # Afficher les projets filtrés
+        for projet in projets_filtres:
             with st.expander(f"🏗️ {projet['type_projet']} - {projet['numero_reference']}", expanded=True):
             # Infos du projet
             col1, col2, col3 = st.columns(3)
@@ -2020,10 +2253,79 @@ def page_espace_entrepreneur():
         with tab1:
             st.markdown("### 🔍 Projets disponibles pour soumission")
             
-            projets = get_projets_disponibles()
+            # Interface de filtrage
+            with st.expander("🔍 Filtres de recherche", expanded=False):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    recherche_texte = st.text_input(
+                        "🔍 Recherche textuelle",
+                        placeholder="Mots-clés dans la description...",
+                        key="recherche_projets"
+                    )
+                    
+                    type_projet_filtre = st.selectbox(
+                        "🏗️ Type de projet",
+                        ["Tous", "Rénovation résidentielle", "Construction neuve", "Rénovation commerciale", 
+                         "Toiture", "Plomberie", "Électricité", "Paysagement", "Autres"],
+                        key="type_projet_filtre"
+                    )
+                
+                with col2:
+                    code_postal_filtre = st.text_input(
+                        "📍 Code postal (début)",
+                        placeholder="Ex: H1A, G1V...",
+                        key="code_postal_filtre"
+                    )
+                    
+                    budget_range = st.select_slider(
+                        "💰 Gamme de budget",
+                        options=["Tous", "< 5K", "5K-15K", "15K-50K", "50K-100K", "> 100K"],
+                        value="Tous",
+                        key="budget_range_filtre"
+                    )
+                
+                with col3:
+                    delai_filtre = st.selectbox(
+                        "⏰ Délai souhaité",
+                        ["Tous", "Urgent (< 1 mois)", "Court (1-3 mois)", "Normal (3-6 mois)", "Long (> 6 mois)"],
+                        key="delai_filtre"
+                    )
+                    
+                    trier_par = st.selectbox(
+                        "📊 Trier par",
+                        ["Date (plus récent)", "Date (plus ancien)", "Budget (croissant)", "Budget (décroissant)", "Nb soumissions"],
+                        key="tri_projets"
+                    )
+            
+            # Application des filtres
+            budget_min, budget_max = None, None
+            if budget_range != "Tous":
+                if budget_range == "< 5K":
+                    budget_max = 5000
+                elif budget_range == "5K-15K":
+                    budget_min, budget_max = 5000, 15000
+                elif budget_range == "15K-50K":
+                    budget_min, budget_max = 15000, 50000
+                elif budget_range == "50K-100K":
+                    budget_min, budget_max = 50000, 100000
+                elif budget_range == "> 100K":
+                    budget_min = 100000
+            
+            # Récupération des projets filtrés
+            projets = filtrer_projets_pour_entrepreneurs(
+                type_projet=type_projet_filtre if type_projet_filtre != "Tous" else None,
+                budget_min=budget_min,
+                budget_max=budget_max,
+                code_postal=code_postal_filtre if code_postal_filtre else None,
+                recherche_texte=recherche_texte if recherche_texte else None
+            )
+            
+            # Affichage des résultats
+            st.markdown(f"**{len(projets)} projet(s) trouvé(s)**")
             
             if not projets:
-                st.info("Aucun projet disponible pour le moment")
+                st.info("Aucun projet ne correspond à vos critères. Essayez d'ajuster les filtres.")
             else:
                 for projet in projets:
                     with st.expander(f"{projet['type_projet']} - {projet['code_postal']} ({projet['budget']})"):
@@ -2249,22 +2551,61 @@ def page_espace_entrepreneur():
         with tab2:
             st.markdown("### 📋 Mes soumissions")
             
-            # Récupérer les soumissions de l'entrepreneur
-            conn = sqlite3.connect(DATABASE_PATH)
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT s.*, l.type_projet, l.budget, l.code_postal, l.nom
-                FROM soumissions s
-                JOIN leads l ON s.lead_id = l.id
-                WHERE s.entrepreneur_id = ?
-                ORDER BY s.date_creation DESC
-            ''', (entrepreneur.id,))
+            # Interface de filtrage pour les soumissions
+            with st.expander("🔍 Filtres mes soumissions", expanded=False):
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    statut_filtre = st.selectbox(
+                        "📊 Statut",
+                        ["Tous", "envoyee", "acceptee", "refusee"],
+                        format_func=lambda x: {"Tous": "Tous", "envoyee": "En attente", "acceptee": "Acceptée", "refusee": "Refusée"}[x],
+                        key="statut_soumissions_filtre"
+                    )
+                
+                with col2:
+                    periode_filtre = st.selectbox(
+                        "📅 Période",
+                        ["Toutes", "Ce mois", "Ce trimestre", "Cette année"],
+                        key="periode_soumissions_filtre"
+                    )
+                
+                with col3:
+                    col3a, col3b = st.columns(2)
+                    with col3a:
+                        montant_min = st.number_input(
+                            "💰 Montant min ($)",
+                            min_value=0,
+                            value=0,
+                            step=1000,
+                            key="montant_min_filtre"
+                        )
+                    with col3b:
+                        montant_max = st.number_input(
+                            "💰 Montant max ($)",
+                            min_value=0,
+                            value=0,
+                            step=1000,
+                            key="montant_max_filtre"
+                        )
             
-            mes_soumissions = cursor.fetchall()
-            conn.close()
+            # Application des filtres
+            mes_soumissions = filtrer_soumissions_entrepreneur(
+                entrepreneur_id=entrepreneur.id,
+                statut=statut_filtre if statut_filtre != "Tous" else None,
+                periode=periode_filtre if periode_filtre != "Toutes" else None,
+                montant_min=montant_min if montant_min > 0 else None,
+                montant_max=montant_max if montant_max > 0 else None
+            )
+            
+            # Affichage des résultats
+            st.markdown(f"**{len(mes_soumissions)} soumission(s) trouvée(s)**")
             
             if not mes_soumissions:
-                st.info("Vous n'avez pas encore envoyé de soumissions")
+                if statut_filtre != "Tous" or periode_filtre != "Toutes" or montant_min > 0 or montant_max > 0:
+                    st.info("Aucune soumission ne correspond à vos critères")
+                else:
+                    st.info("Vous n'avez pas encore envoyé de soumissions")
             else:
                 for soum in mes_soumissions:
                     statut_emoji = {
@@ -2274,24 +2615,24 @@ def page_espace_entrepreneur():
                         'refusee': '❌'
                     }
                     
-                    with st.expander(f"{statut_emoji.get(soum[11], '📋')} {soum[17]} - {soum[16]} - {soum[3]:,.2f}$"):
+                    with st.expander(f"{statut_emoji.get(soum['statut'], '📋')} {soum['type_projet']} - {soum['nom_client']} - {soum['montant']:,.2f}$"):
                         col1, col2 = st.columns([2, 1])
                         
                         with col1:
-                            st.write(f"**Client:** {soum[20]}")
-                            st.write(f"**Projet:** {soum[17]}")
-                            st.write(f"**Zone:** {soum[19]}")
-                            st.write(f"**Budget client:** {soum[18]}")
+                            st.write(f"**Client:** {soum['nom_client']}")
+                            st.write(f"**Projet:** {soum['type_projet']}")
+                            st.write(f"**Référence:** {soum['numero_reference']}")
+                            st.write(f"**Délai proposé:** {soum['delai_execution']}")
                         
                         with col2:
-                            st.write(f"**Ma soumission:** {soum[3]:,.2f}$")
-                            st.write(f"**Statut:** {soum[11].capitalize()}")
-                            st.write(f"**Date:** {soum[12][:10]}")
+                            st.write(f"**Ma soumission:** {soum['montant']:,.2f}$")
+                            st.write(f"**Statut:** {soum['statut'].capitalize()}")
+                            st.write(f"**Date:** {soum['date_creation'][:10]}")
                         
-                        if soum[11] == 'acceptee':
+                        if soum['statut'] == 'acceptee':
                             st.success("🎉 Félicitations! Votre soumission a été acceptée!")
                             st.info(f"Contactez le client pour finaliser les détails")
-                        elif soum[11] == 'refusee':
+                        elif soum['statut'] == 'refusee':
                             st.error("Cette soumission n'a pas été retenue")
         
         with tab3:
