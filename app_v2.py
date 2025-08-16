@@ -864,6 +864,50 @@ def page_mes_projets():
                             st.markdown("**Conditions:**")
                             st.text_area("", value=soum['conditions'] or "Non spécifié", height=80, disabled=True, key=f"cond_{soum['id']}")
                             
+                            # Affichage des pièces jointes de la soumission
+                            if soum['documents']:
+                                st.markdown("---")
+                                st.markdown("### 📎 Documents joints à la soumission")
+                                
+                                try:
+                                    # Format: "filename1:base64data1|filename2:base64data2"
+                                    documents_list = soum['documents'].split('|')
+                                    
+                                    cols = st.columns(min(3, len(documents_list)))
+                                    
+                                    for i, doc_entry in enumerate(documents_list):
+                                        if ':' in doc_entry:
+                                            filename, doc_base64 = doc_entry.split(':', 1)
+                                            
+                                            with cols[i % 3]:
+                                                try:
+                                                    doc_data = base64.b64decode(doc_base64)
+                                                    
+                                                    # Déterminer le type MIME basé sur l'extension
+                                                    if filename.lower().endswith('.pdf'):
+                                                        mime_type = "application/pdf"
+                                                    elif filename.lower().endswith(('.doc', '.docx')):
+                                                        mime_type = "application/msword"
+                                                    elif filename.lower().endswith(('.xls', '.xlsx')):
+                                                        mime_type = "application/vnd.ms-excel"
+                                                    elif filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                                                        mime_type = "image/png"
+                                                    else:
+                                                        mime_type = "application/octet-stream"
+                                                    
+                                                    st.download_button(
+                                                        f"📄 {filename}",
+                                                        data=doc_data,
+                                                        file_name=filename,
+                                                        mime=mime_type,
+                                                        key=f"download_{soum['id']}_{i}",
+                                                        use_container_width=True
+                                                    )
+                                                except Exception as e:
+                                                    st.error(f"Erreur lors du chargement de {filename}")
+                                except Exception as e:
+                                    st.error("Erreur lors du traitement des documents")
+                            
                             # Actions sur la soumission
                             col1, col2, col3 = st.columns(3)
                             
@@ -1031,6 +1075,64 @@ def page_espace_entrepreneur():
                             st.write(f"📋 {projet['nb_soumissions']} soumission(s)")
                             st.write(f"📆 Publié: {projet['date_creation'][:10]}")
                         
+                        # Affichage des pièces jointes
+                        st.markdown("---")
+                        st.markdown("### 📎 Documents et plans du projet")
+                        
+                        col_files1, col_files2, col_files3 = st.columns(3)
+                        
+                        with col_files1:
+                            if projet['photos']:
+                                st.markdown("**📸 Photos:**")
+                                photos_list = projet['photos'].split(',')
+                                for i, photo_base64 in enumerate(photos_list):
+                                    try:
+                                        photo_data = base64.b64decode(photo_base64)
+                                        image = Image.open(io.BytesIO(photo_data))
+                                        st.image(image, caption=f"Photo {i+1}", use_container_width=True)
+                                    except:
+                                        st.error(f"Erreur lors du chargement de la photo {i+1}")
+                            else:
+                                st.info("Aucune photo disponible")
+                        
+                        with col_files2:
+                            if projet['plans']:
+                                st.markdown("**📋 Plans:**")
+                                plans_list = projet['plans'].split(',')
+                                for i, plan_base64 in enumerate(plans_list):
+                                    try:
+                                        plan_data = base64.b64decode(plan_base64)
+                                        st.download_button(
+                                            f"📋 Télécharger Plan {i+1}",
+                                            data=plan_data,
+                                            file_name=f"plan_{i+1}_{projet['numero_reference']}.pdf",
+                                            mime="application/pdf",
+                                            key=f"plan_{projet['id']}_{i}"
+                                        )
+                                    except:
+                                        st.error(f"Erreur lors du chargement du plan {i+1}")
+                            else:
+                                st.info("Aucun plan disponible")
+                        
+                        with col_files3:
+                            if projet['documents']:
+                                st.markdown("**📄 Documents:**")
+                                documents_list = projet['documents'].split(',')
+                                for i, doc_base64 in enumerate(documents_list):
+                                    try:
+                                        doc_data = base64.b64decode(doc_base64)
+                                        st.download_button(
+                                            f"📄 Télécharger Doc {i+1}",
+                                            data=doc_data,
+                                            file_name=f"document_{i+1}_{projet['numero_reference']}.pdf",
+                                            mime="application/pdf",
+                                            key=f"doc_{projet['id']}_{i}"
+                                        )
+                                    except:
+                                        st.error(f"Erreur lors du chargement du document {i+1}")
+                            else:
+                                st.info("Aucun document disponible")
+                        
                         # Vérifier si déjà soumissionné
                         conn = sqlite3.connect(DATABASE_PATH)
                         cursor = conn.cursor()
@@ -1108,8 +1210,39 @@ def page_espace_entrepreneur():
                                     key=f"conditions_{projet['id']}"
                                 )
                                 
+                                # Section pièces jointes pour la soumission
+                                st.markdown("---")
+                                st.markdown("### 📎 Pièces jointes de votre soumission")
+                                st.caption("Ajoutez vos documents : devis détaillé, plans, références, catalogue...")
+                                
+                                col_doc1, col_doc2 = st.columns(2)
+                                
+                                with col_doc1:
+                                    documents_soumission = st.file_uploader(
+                                        "Documents de soumission",
+                                        type=['pdf', 'doc', 'docx', 'xls', 'xlsx', 'png', 'jpg', 'jpeg'],
+                                        accept_multiple_files=True,
+                                        help="Max 5 fichiers - Formats: PDF, DOC, XLS, Images",
+                                        key=f"docs_soumission_{projet['id']}"
+                                    )
+                                
+                                with col_doc2:
+                                    if documents_soumission:
+                                        st.markdown("**Fichiers sélectionnés:**")
+                                        for doc in documents_soumission[:5]:  # Limiter à 5 fichiers
+                                            st.write(f"📄 {doc.name}")
+                                
                                 if st.form_submit_button("📤 Envoyer ma soumission", type="primary"):
                                     if montant > 0 and delai_execution and description_travaux:
+                                        # Traitement des fichiers uploadés
+                                        documents_data = None
+                                        if documents_soumission:
+                                            docs_base64 = []
+                                            for doc in documents_soumission[:5]:  # Limiter à 5 fichiers
+                                                doc_data = base64.b64encode(doc.read()).decode()
+                                                docs_base64.append(f"{doc.name}:{doc_data}")
+                                            documents_data = "|".join(docs_base64)
+                                        
                                         soumission = Soumission(
                                             lead_id=projet['id'],
                                             entrepreneur_id=entrepreneur.id,
@@ -1119,7 +1252,8 @@ def page_espace_entrepreneur():
                                             validite_offre=validite_offre,
                                             inclusions=inclusions,
                                             exclusions=exclusions,
-                                            conditions=conditions
+                                            conditions=conditions,
+                                            documents=documents_data
                                         )
                                         
                                         if sauvegarder_soumission(soumission):
