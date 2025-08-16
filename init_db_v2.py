@@ -4,6 +4,13 @@ import hashlib
 import random
 import os
 
+# Configuration du stockage persistant
+DATA_DIR = os.getenv('DATA_DIR', '/opt/render/project/data')
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+DATABASE_PATH = os.path.join(DATA_DIR, DATABASE_PATH)
+
 def hash_password(password: str) -> str:
     """Hash un mot de passe avec SHA-256"""
     return hashlib.sha256(password.encode()).hexdigest()
@@ -12,16 +19,17 @@ def init_database_with_soumissions():
     """Initialise la base de données avec support des soumissions directes"""
     
     # Backup de l'ancienne base si elle existe
-    if os.path.exists('seaop.db'):
-        backup_name = f'seaop_backup_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
-        os.rename('seaop.db', backup_name)
+    if os.path.exists(DATABASE_PATH):
+        backup_name = os.path.join(DATA_DIR, f'seaop_backup_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.db')
+        os.rename(DATABASE_PATH, backup_name)
         print(f"Backup cree: {backup_name}")
     elif os.path.exists('soumissions_quebec.db'):
-        backup_name = f'soumissions_quebec_backup_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.db'
-        os.rename('soumissions_quebec.db', backup_name)
-        print(f"Backup ancien systeme cree: {backup_name}")
+        backup_name = os.path.join(DATA_DIR, f'soumissions_quebec_backup_{datetime.datetime.now().strftime("%Y%m%d_%H%M%S")}.db')
+        if os.path.exists('soumissions_quebec.db'):
+            os.rename('soumissions_quebec.db', backup_name)
+            print(f"Backup ancien systeme cree: {backup_name}")
     
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     # Table des leads (projets clients) - MODIFIÉE

@@ -35,13 +35,36 @@ streamlit run app_v2.py --server.port=$PORT --server.address=0.0.0.0 --server.he
 
 **⚠️ IMPORTANT :** Remplacez par un mot de passe fort (ex: `SEAOP_2024_Admin_Secure!`)
 
-### **2. Configuration Streamlit :**
+### **2. Stockage persistant (OBLIGATOIRE) :**
+
+| Variable | Valeur | Description |
+|----------|--------|-------------|
+| `DATA_DIR` | `/opt/render/project/data` | Répertoire de stockage persistant |
+
+### **3. Configuration Streamlit :**
 
 | Variable | Valeur |
 |----------|--------|
 | `STREAMLIT_SERVER_HEADLESS` | `true` |
 | `STREAMLIT_SERVER_ENABLE_CORS` | `false` |
 | `STREAMLIT_BROWSER_GATHER_USAGE_STATS` | `false` |
+
+---
+
+## 💾 **CONFIGURATION STOCKAGE PERSISTANT**
+
+### **Disque persistant (OBLIGATOIRE pour SEAOP) :**
+- **Taille** : 10 GB (configuré)
+- **Point de montage** : `/opt/render/project/data`
+- **Usage** : Stockage de la base de données SQLite et fichiers uploadés
+
+**⚠️ CRITIQUE :** Sans disque persistant, toutes les données SEAOP seraient perdues à chaque redéploiement !
+
+### **Avantages du stockage persistant :**
+- ✅ Conservation des appels d'offres et soumissions
+- ✅ Persistance des comptes utilisateurs
+- ✅ Sauvegarde des documents uploadés
+- ✅ Historique complet des projets
 
 ---
 
@@ -69,7 +92,8 @@ streamlit run app_v2.py --server.port=$PORT --server.address=0.0.0.0 --server.he
 ### **2. Variables d'environnement :**
 1. Cliquez **"Add Environment Variable"**
 2. Ajoutez **ADMIN_PASSWORD** avec votre mot de passe sécurisé
-3. Ajoutez les autres variables Streamlit
+3. Ajoutez **DATA_DIR** avec la valeur `/opt/render/project/data`
+4. Ajoutez les autres variables Streamlit
 
 ### **3. Déploiement :**
 1. Cliquez **"Create Web Service"**

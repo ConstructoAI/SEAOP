@@ -12,6 +12,13 @@ from PIL import Image
 import io
 import base64
 
+# Configuration du stockage persistant
+DATA_DIR = os.getenv('DATA_DIR', '/opt/render/project/data')
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+DATABASE_PATH = os.path.join(DATA_DIR, 'seaop.db')
+
 # Configuration de la page
 st.set_page_config(
     page_title="SEAOP - Système Électronique d'Appel d'Offres Public",
@@ -94,7 +101,7 @@ class Soumission:
 # Fonctions utilitaires
 def init_database():
     """Initialise la base de données SQLite avec toutes les tables"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     # Table des leads (projets)
@@ -245,7 +252,7 @@ def generer_numero_reference() -> str:
 
 def sauvegarder_lead(lead: Lead) -> str:
     """Sauvegarde un lead dans la base de données"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     numero_ref = generer_numero_reference()
@@ -265,7 +272,7 @@ def sauvegarder_lead(lead: Lead) -> str:
 
 def authentifier_entrepreneur(email: str, mot_de_passe: str) -> Optional[Entrepreneur]:
     """Authentifie un entrepreneur"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -289,7 +296,7 @@ def authentifier_entrepreneur(email: str, mot_de_passe: str) -> Optional[Entrepr
 
 def get_projets_disponibles() -> List[Dict]:
     """Récupère tous les projets disponibles pour soumission"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -316,7 +323,7 @@ def get_projets_disponibles() -> List[Dict]:
 
 def sauvegarder_soumission(soumission: Soumission) -> bool:
     """Sauvegarde une soumission d'entrepreneur"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     try:
@@ -339,7 +346,7 @@ def sauvegarder_soumission(soumission: Soumission) -> bool:
 
 def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
     """Récupère toutes les soumissions pour un projet"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -379,7 +386,7 @@ def get_soumissions_pour_projet(lead_id: int) -> List[Dict]:
 
 def get_mes_projets(email: str) -> List[Dict]:
     """Récupère les projets d'un client par email"""
-    conn = sqlite3.connect('seaop.db')
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -798,7 +805,7 @@ def page_mes_projets():
                 if projet['accepte_soumissions']:
                     if st.button(f"🔒 Fermer les soumissions", key=f"fermer_{projet['id']}"):
                         # Fermer les soumissions
-                        conn = sqlite3.connect('seaop.db')
+                        conn = sqlite3.connect(DATABASE_PATH)
                         cursor = conn.cursor()
                         cursor.execute('''
                             UPDATE leads SET accepte_soumissions = 0 WHERE id = ?
@@ -863,7 +870,7 @@ def page_mes_projets():
                             with col1:
                                 if soum['statut'] != 'acceptee':
                                     if st.button("✅ Accepter", key=f"accept_{soum['id']}", type="primary"):
-                                        conn = sqlite3.connect('seaop.db')
+                                        conn = sqlite3.connect(DATABASE_PATH)
                                         cursor = conn.cursor()
                                         cursor.execute('''
                                             UPDATE soumissions SET statut = 'acceptee' WHERE id = ?
@@ -878,7 +885,7 @@ def page_mes_projets():
                             with col2:
                                 if soum['statut'] != 'refusee' and soum['statut'] != 'acceptee':
                                     if st.button("❌ Refuser", key=f"refuse_{soum['id']}"):
-                                        conn = sqlite3.connect('seaop.db')
+                                        conn = sqlite3.connect(DATABASE_PATH)
                                         cursor = conn.cursor()
                                         cursor.execute('''
                                             UPDATE soumissions SET statut = 'refusee' WHERE id = ?
@@ -957,7 +964,7 @@ def page_espace_entrepreneur():
                     if all([nom_entreprise, nom_contact, email_inscription, telephone, mot_de_passe]):
                         if mot_de_passe == confirmer_mdp:
                             # Créer le compte
-                            conn = sqlite3.connect('seaop.db')
+                            conn = sqlite3.connect(DATABASE_PATH)
                             cursor = conn.cursor()
                             
                             try:
@@ -1025,7 +1032,7 @@ def page_espace_entrepreneur():
                             st.write(f"📆 Publié: {projet['date_creation'][:10]}")
                         
                         # Vérifier si déjà soumissionné
-                        conn = sqlite3.connect('seaop.db')
+                        conn = sqlite3.connect(DATABASE_PATH)
                         cursor = conn.cursor()
                         cursor.execute('''
                             SELECT id FROM soumissions 
@@ -1128,7 +1135,7 @@ def page_espace_entrepreneur():
             st.markdown("### 📋 Mes soumissions")
             
             # Récupérer les soumissions de l'entrepreneur
-            conn = sqlite3.connect('seaop.db')
+            conn = sqlite3.connect(DATABASE_PATH)
             cursor = conn.cursor()
             cursor.execute('''
                 SELECT s.*, l.type_projet, l.budget, l.code_postal, l.nom
@@ -1198,7 +1205,7 @@ def page_espace_entrepreneur():
                 )
                 
                 if st.form_submit_button("💾 Sauvegarder"):
-                    conn = sqlite3.connect('seaop.db')
+                    conn = sqlite3.connect(DATABASE_PATH)
                     cursor = conn.cursor()
                     
                     cursor.execute('''
@@ -1247,7 +1254,7 @@ def page_administration():
                 st.rerun()
         
         # Statistiques
-        conn = sqlite3.connect('seaop.db')
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
         cursor.execute("SELECT COUNT(*) FROM leads")
@@ -1279,7 +1286,7 @@ def page_administration():
         tab1, tab2, tab3 = st.tabs(["📋 Projets", "👷 Entrepreneurs", "📊 Soumissions"])
         
         with tab1:
-            conn = sqlite3.connect('seaop.db')
+            conn = sqlite3.connect(DATABASE_PATH)
             df_projets = pd.read_sql_query('''
                 SELECT id, numero_reference, nom, type_projet, budget, statut, date_creation
                 FROM leads
@@ -1290,7 +1297,7 @@ def page_administration():
             st.dataframe(df_projets, use_container_width=True)
         
         with tab2:
-            conn = sqlite3.connect('seaop.db')
+            conn = sqlite3.connect(DATABASE_PATH)
             df_entrepreneurs = pd.read_sql_query('''
                 SELECT id, nom_entreprise, email, numero_rbq, abonnement, date_inscription
                 FROM entrepreneurs
@@ -1301,7 +1308,7 @@ def page_administration():
             st.dataframe(df_entrepreneurs, use_container_width=True)
         
         with tab3:
-            conn = sqlite3.connect('seaop.db')
+            conn = sqlite3.connect(DATABASE_PATH)
             df_soumissions = pd.read_sql_query('''
                 SELECT s.id, e.nom_entreprise, l.type_projet, s.montant, s.statut, s.date_creation
                 FROM soumissions s
