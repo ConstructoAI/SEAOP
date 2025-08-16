@@ -1328,6 +1328,25 @@ def generer_lien_telechargement(nom_fichier: str, contenu_b64: str) -> str:
     except Exception as e:
         return f"❌ Erreur: {nom_fichier}"
 
+def formater_date_affichage(date_value) -> str:
+    """Formate une date pour l'affichage, gère différents types de données"""
+    if not date_value:
+        return "N/A"
+    
+    try:
+        if isinstance(date_value, str):
+            # Si c'est déjà une chaîne, prendre les 10 premiers caractères
+            return date_value[:10]
+        elif isinstance(date_value, (int, float)):
+            # Si c'est un timestamp, le convertir
+            import datetime
+            return datetime.datetime.fromtimestamp(date_value).strftime('%Y-%m-%d')
+        else:
+            # Autre type, convertir en string et prendre les 10 premiers caractères
+            return str(date_value)[:10]
+    except:
+        return "N/A"
+
 def afficher_fichiers_client(plans_client: str, photos_client: str, documents_client: str):
     """Affiche les fichiers uploadés par le client avec liens de téléchargement"""
     
@@ -1836,7 +1855,7 @@ def page_accueil():
                     st.caption(f"📋 {projet['nb_soumissions']} soumissions")
                 
                 with col3:
-                    date_affichage = projet['date_creation'][:10] if projet['date_creation'] else "N/A"
+                    date_affichage = formater_date_affichage(projet['date_creation'])
                     st.caption(f"📅 {date_affichage}")
                 
                 with col4:
@@ -2898,7 +2917,7 @@ def page_espace_entrepreneur():
                             st.write(f"💰 Budget: {projet['budget']}")
                             st.write(f"📍 Zone: {projet['code_postal']}")
                             st.write(f"📋 {projet['nb_soumissions']} soumission(s)")
-                            date_pub = projet['date_creation'][:10] if projet['date_creation'] else "N/A"
+                            date_pub = formater_date_affichage(projet['date_creation'])
                             st.write(f"📆 Publié: {date_pub}")
                         
                         # Affichage des pièces jointes
@@ -3184,7 +3203,7 @@ def page_espace_entrepreneur():
                         with col2:
                             st.write(f"**Ma soumission:** {soum['montant']:,.2f}$")
                             st.write(f"**Statut:** {soum['statut'].capitalize()}")
-                            date_soum = soum['date_creation'][:10] if soum['date_creation'] else "N/A"
+                            date_soum = formater_date_affichage(soum['date_creation'])
                             st.write(f"**Date:** {date_soum}")
                         
                         if soum['statut'] == 'acceptee':
