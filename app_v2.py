@@ -5016,6 +5016,9 @@ def calculer_prix_technologue(superficie: float, services: list, options: dict) 
 
 def creer_demande_technologue(demande_data: Dict) -> str:
     """Crée une nouvelle demande de plans de technologue"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_technologue()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
@@ -5075,17 +5078,27 @@ def creer_demande_technologue(demande_data: Dict) -> str:
 
 def get_demandes_technologue_client(email_client: str) -> List[Dict]:
     """Récupère les demandes de technologue d'un client"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_technologue()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, type_batiment, usage_batiment, superficie_batiment,
-               ville, prix_service, statut, date_demande, numero_reference,
-               date_livraison_plans, pourcentage_complete, plans_finaux
-        FROM demandes_technologue
-        WHERE email_client = ?
-        ORDER BY date_demande DESC
-    ''', (email_client,))
+    try:
+        cursor.execute('''
+            SELECT id, type_batiment, usage_batiment, superficie_batiment,
+                   ville, prix_service, statut, date_demande, numero_reference,
+                   date_livraison_plans, pourcentage_complete, plans_finaux
+            FROM demandes_technologue
+            WHERE email_client = ?
+            ORDER BY date_demande DESC
+        ''', (email_client,))
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            conn.close()
+            return []
+        else:
+            raise
     
     demandes = []
     for row in cursor.fetchall():
@@ -5107,19 +5120,127 @@ def get_demandes_technologue_client(email_client: str) -> List[Dict]:
     conn.close()
     return demandes
 
-def get_demandes_technologue_admin() -> List[Dict]:
-    """Récupère toutes les demandes de technologue pour l'admin"""
+def verifier_et_creer_table_technologue():
+    """Vérifie si la table technologue existe, sinon la crée"""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, nom_client, email_client, telephone_client, ville, type_batiment,
-               superficie_batiment, nombre_etages, budget_technologue, prix_service,
-               statut, date_demande, numero_reference, niveau_urgence, 
-               pourcentage_complete, usage_batiment, type_construction, services_inclus
-        FROM demandes_technologue
-        ORDER BY date_demande DESC
-    ''')
+    try:
+        # Vérifier si la table existe
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='demandes_technologue'")
+        if not cursor.fetchone():
+            print("Création de la table demandes_technologue...")
+            
+            # Créer la table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS demandes_technologue (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nom_client TEXT NOT NULL,
+                    email_client TEXT NOT NULL,
+                    telephone_client TEXT NOT NULL,
+                    adresse_projet TEXT NOT NULL,
+                    ville TEXT NOT NULL,
+                    code_postal TEXT NOT NULL,
+                    type_batiment TEXT NOT NULL,
+                    usage_batiment TEXT NOT NULL,
+                    superficie_terrain REAL,
+                    superficie_batiment REAL NOT NULL,
+                    nombre_etages INTEGER DEFAULT 1,
+                    nombre_pieces INTEGER,
+                    type_construction TEXT,
+                    style_architectural TEXT,
+                    contraintes_terrain TEXT,
+                    exigences_speciales TEXT,
+                    plans_requis TEXT NOT NULL,
+                    services_inclus TEXT,
+                    besoin_3d BOOLEAN DEFAULT 0,
+                    besoin_permis BOOLEAN DEFAULT 1,
+                    visite_terrain BOOLEAN DEFAULT 0,
+                    certificat_localisation TEXT,
+                    photos_terrain TEXT,
+                    croquis_client TEXT,
+                    documents_existants TEXT,
+                    budget_construction TEXT,
+                    budget_technologue TEXT,
+                    date_debut_souhaite DATE,
+                    date_livraison_plans DATE,
+                    niveau_urgence TEXT DEFAULT 'normal',
+                    technologue_assigne TEXT,
+                    numero_otaq TEXT,
+                    plans_preliminaires TEXT,
+                    plans_finaux TEXT,
+                    devis_technique TEXT,
+                    rapport_conformite TEXT,
+                    estimation_couts TEXT,
+                    prix_service REAL,
+                    modalite_paiement TEXT,
+                    taux_horaire REAL,
+                    pourcentage_complete INTEGER DEFAULT 0,
+                    statut TEXT DEFAULT 'recue',
+                    notes_internes TEXT,
+                    commentaires_client TEXT,
+                    raison_refus TEXT,
+                    date_demande TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    date_analyse TIMESTAMP,
+                    date_acceptation TIMESTAMP,
+                    date_debut_plans TIMESTAMP,
+                    date_revision TIMESTAMP,
+                    date_livraison TIMESTAMP,
+                    date_paiement TIMESTAMP,
+                    numero_reference TEXT UNIQUE,
+                    numero_projet_technologue TEXT,
+                    lead_id INTEGER,
+                    conforme_zonage BOOLEAN,
+                    conforme_cnb BOOLEAN,
+                    conforme_municipal BOOLEAN,
+                    validation_technique BOOLEAN,
+                    plan_implantation BOOLEAN DEFAULT 1,
+                    plan_fondation BOOLEAN DEFAULT 1,
+                    plan_charpente BOOLEAN DEFAULT 1,
+                    plan_electricite BOOLEAN DEFAULT 0,
+                    plan_plomberie BOOLEAN DEFAULT 0,
+                    FOREIGN KEY (lead_id) REFERENCES leads (id)
+                )
+            ''')
+            
+            # Créer les index
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_tech_statut ON demandes_technologue(statut)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_tech_client ON demandes_technologue(email_client)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_tech_date ON demandes_technologue(date_demande)')
+            
+            conn.commit()
+            print("Table demandes_technologue créée avec succès")
+            
+    except Exception as e:
+        print(f"Erreur lors de la création de la table technologue: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+def get_demandes_technologue_admin() -> List[Dict]:
+    """Récupère toutes les demandes de technologue pour l'admin"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_technologue()
+    
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT id, nom_client, email_client, telephone_client, ville, type_batiment,
+                   superficie_batiment, nombre_etages, budget_technologue, prix_service,
+                   statut, date_demande, numero_reference, niveau_urgence, 
+                   pourcentage_complete, usage_batiment, type_construction, services_inclus
+            FROM demandes_technologue
+            ORDER BY date_demande DESC
+        ''')
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            # Table n'existe pas, retourner liste vide
+            conn.close()
+            return []
+        else:
+            raise
     
     demandes = []
     for row in cursor.fetchall():
@@ -5149,29 +5270,39 @@ def get_demandes_technologue_admin() -> List[Dict]:
 
 def get_stats_technologue() -> Dict:
     """Récupère les statistiques du service de technologue"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_technologue()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('SELECT COUNT(*) FROM demandes_technologue')
-    total = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM demandes_technologue WHERE statut IN ('en_cours', 'revision', 'acceptee')")
-    en_cours = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT AVG(superficie_batiment) FROM demandes_technologue WHERE superficie_batiment IS NOT NULL')
-    superficie_avg = cursor.fetchone()[0] or 0
-    
-    cursor.execute('SELECT SUM(prix_service) FROM demandes_technologue WHERE prix_service IS NOT NULL')
-    ca_total = cursor.fetchone()[0] or 0
-    
-    conn.close()
-    
-    return {
-        'total': total,
-        'en_cours': en_cours,
-        'superficie_moyenne': superficie_avg,
-        'ca_total': ca_total
-    }
+    try:
+        cursor.execute('SELECT COUNT(*) FROM demandes_technologue')
+        total = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM demandes_technologue WHERE statut IN ('en_cours', 'revision', 'acceptee')")
+        en_cours = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT AVG(superficie_batiment) FROM demandes_technologue WHERE superficie_batiment IS NOT NULL')
+        superficie_avg = cursor.fetchone()[0] or 0
+        
+        cursor.execute('SELECT SUM(prix_service) FROM demandes_technologue WHERE prix_service IS NOT NULL')
+        ca_total = cursor.fetchone()[0] or 0
+        
+        conn.close()
+        
+        return {
+            'total': total,
+            'en_cours': en_cours,
+            'superficie_moyenne': superficie_avg,
+            'ca_total': ca_total
+        }
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            conn.close()
+            return {'total': 0, 'en_cours': 0, 'superficie_moyenne': 0, 'ca_total': 0}
+        else:
+            raise
 
 def mettre_a_jour_statut_technologue(demande_id: int, nouveau_statut: str, notes: str, pourcentage: int) -> bool:
     """Met à jour le statut d'une demande de technologue"""
