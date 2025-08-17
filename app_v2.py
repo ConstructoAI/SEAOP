@@ -2066,6 +2066,17 @@ def main():
         page_espace_entrepreneur()
     elif st.session_state.page == 'admin':
         page_administration()
+    
+    # Footer
+    st.markdown("---")
+    st.markdown(
+        """
+        <div style="text-align: center; padding: 20px; color: #6B7280; font-size: 14px;">
+            © 2025 SEAOP - Développé par Sylvain Leduc
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 def page_accueil():
     """Page d'accueil avec présentation du service"""
