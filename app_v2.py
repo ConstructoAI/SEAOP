@@ -1947,6 +1947,80 @@ def main():
             if total_non_lus > 0 or notifs_non_lues > 0:
                 st.markdown("---")
         
+        st.markdown("---")
+        st.markdown("**🔗 Outils d'expertise :**")
+        
+        # EXPERTS IA - Mise en avant principale
+        with st.expander("🧠 **EXPERTS IA** - 60+ Experts Construction", expanded=False):
+            st.markdown("""
+            **🏆 L'Assistant IA le Plus Avancé de la Construction Québécoise**
+            
+            ✨ **Fonctionnalités révolutionnaires :**
+            • **60+ profils d'experts** spécialisés (2,400+ années d'expérience)
+            • **Entrepreneur Général, Architecte, Électricien CMEQ, Plombier CMMTQ**
+            • **Assistant IA adaptatif** qui sélectionne l'expert optimal
+            • **Calculs techniques automatiques** (poutres, colonnes, linteaux)
+            • **Conformité RBQ/CCQ** automatique
+            
+            🎯 **Parfait pour vos appels d'offres SEAOP :**
+            • Validation technique de vos projets
+            • Estimations ultra-précises par expert
+            • Conseils réglementaires spécialisés
+            • Optimisation coûts et délais
+            """)
+            if st.button("🚀 **Accéder à EXPERTS IA**", key="experts_ai_main"):
+                st.markdown("**[→ Ouvrir EXPERTS IA](https://experts-ai.onrender.com/)**")
+        
+        # TAKEOFF AI - Complémentaire
+        with st.expander("📐 **TAKEOFF AI** - Estimation de Construction", expanded=False):
+            st.markdown("""
+            **🏗️ Système d'Estimation avec IA Claude**
+            
+            ✨ **Outils professionnels :**
+            • **Visualisation PDF** et annotation de plans
+            • **5 modes de mesure** (distance, surface, périmètre, angle)
+            • **Système d'accrochage intelligent** aux lignes
+            • **Catalogue produits** avec prix et dimensions
+            • **Export rapports** CSV, JSON, PDF
+            
+            💡 **Idéal pour les entrepreneurs SEAOP :**
+            • Mesures précises sur vos plans
+            • Calcul quantités de matériaux
+            • Soumissions plus compétitives
+            """)
+            if st.button("📐 **Accéder à TAKEOFF AI**", key="takeoff_ai_main"):
+                st.markdown("**[→ Ouvrir TAKEOFF AI](https://takeoff-ai.onrender.com/)**")
+        
+        # ERP AI - Gestion de production
+        with st.expander("🏭 **ERP AI** - Gestion de Production Industrielle", expanded=False):
+            st.markdown("""
+            **🏭 Solution ERP Complète avec 61 Postes de Travail**
+            
+            ✨ **Fonctionnalités industrielles :**
+            • **61 postes de travail** configurés (Soudage, CNC, Assemblage)
+            • **TimeTracker temps réel** avec synchronisation ERP
+            • **Gammes de fabrication** automatiques
+            • **Multi-vues** : Dashboard, Kanban, Gantt, Calendrier
+            • **CRM intégré** et gestion RH complète
+            
+            🎯 **Parfait pour projets attribués SEAOP :**
+            • Planification de production optimisée
+            • Suivi temps réel des fabrications
+            • Gestion complète des ressources
+            • Livraison dans les délais contractuels
+            """)
+            st.info("""
+            💼 **Installation & Support ERP AI**
+            
+            Pour l'installation et la configuration personnalisée d'ERP AI :
+            
+            📧 **Email** : sylvainleduc2000@gmail.com  
+            📞 **Téléphone** : 514-820-1972
+            
+            *Sylvain Leduc - Expert ERP & Solutions Industrielles*
+            """)
+        
+        st.markdown("---")
         st.markdown("**💡 Instructions :**")
         st.markdown("1. Sélectionnez une option dans le menu ci-dessus")
         st.markdown("2. La page se chargera automatiquement")
