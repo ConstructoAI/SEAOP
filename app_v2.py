@@ -1991,21 +1991,25 @@ def main():
             if st.button("📐 **Accéder à TAKEOFF AI**", key="takeoff_ai_main"):
                 st.markdown("**[→ Ouvrir TAKEOFF AI](https://takeoff-ai.onrender.com/)**")
         
-        # ERP AI - Gestion de production
-        with st.expander("🏭 **ERP AI** - Gestion de Production Industrielle", expanded=False):
+        # ERP AI - Gestion de projets construction
+        with st.expander("📊 **ERP AI** - Gestion de Projets Construction Québec", expanded=False):
             st.markdown("""
-            **🏭 Solution ERP Complète avec 61 Postes de Travail**
+            **🏗️ ERP Spécialisé Construction avec 24 Étapes de Chantier**
             
-            ✨ **Fonctionnalités industrielles :**
-            • **TimeTracker temps réel** avec synchronisation ERP
-            • **Gammes de fabrication** automatiques
+            ✨ **Fonctionnalités construction québécoise :**
+            • **24 étapes de construction** (excavation → livraison)
+            • **Bons de Travail (BT)** avec traçabilité complète
+            • **TimeTracker chantier** temps réel
             • **Multi-vues** : Dashboard, Kanban, Gantt, Calendrier
-            • **CRM intégré** et gestion RH complète
+            • **CRM construction** et gestion RH spécialisée
+            • **Inventaire matériaux** avec normes CSA/BNQ
+            • **Assistant IA Claude** pour expertise technique
             
             🎯 **Parfait pour projets attribués SEAOP :**
-            • Planification de production optimisée
-            • Suivi temps réel des fabrications
-            • Gestion complète des ressources
+            • Gestion complète de vos chantiers
+            • Suivi progression par étape construction
+            • Conformité RBQ/CCQ automatique
+            • Pointage employés et sous-traitants
             • Livraison dans les délais contractuels
             """)
             st.info("""
