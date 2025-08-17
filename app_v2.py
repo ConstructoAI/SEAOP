@@ -1997,7 +1997,6 @@ def main():
             **🏭 Solution ERP Complète avec 61 Postes de Travail**
             
             ✨ **Fonctionnalités industrielles :**
-            • **61 postes de travail** configurés (Soudage, CNC, Assemblage)
             • **TimeTracker temps réel** avec synchronisation ERP
             • **Gammes de fabrication** automatiques
             • **Multi-vues** : Dashboard, Kanban, Gantt, Calendrier
