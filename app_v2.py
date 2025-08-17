@@ -4800,19 +4800,237 @@ def page_service_estimation():
 
 # === FONCTIONS POUR SERVICE D'ARCHITECTURE ===
 
-def get_demandes_architecture_admin() -> List[Dict]:
-    """Récupère toutes les demandes d'architecture pour l'admin"""
+def verifier_et_creer_table_architecture():
+    """Vérifie si la table architecture existe, sinon la crée"""
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, nom_client, email_client, telephone_client, ville, type_batiment,
-               superficie_batiment, nombre_etages, budget_construction, prix_service,
-               statut, date_demande, numero_reference, niveau_urgence, 
-               pourcentage_complete, usage_batiment
-        FROM demandes_architecture
-        ORDER BY date_demande DESC
-    ''')
+    try:
+        # Vérifier si la table existe
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='demandes_architecture'")
+        if not cursor.fetchone():
+            print("Création de la table demandes_architecture...")
+            
+            # Créer la table notifications si elle n'existe pas
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS notifications (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    utilisateur_type TEXT NOT NULL,
+                    utilisateur_id INTEGER NOT NULL,
+                    type_notification TEXT NOT NULL,
+                    titre TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    lien_id INTEGER,
+                    lu BOOLEAN DEFAULT 0,
+                    date_creation TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            
+            # Créer la table demandes_architecture
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS demandes_architecture (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nom_client TEXT NOT NULL,
+                    email_client TEXT NOT NULL,
+                    telephone_client TEXT NOT NULL,
+                    adresse_projet TEXT NOT NULL,
+                    ville TEXT NOT NULL,
+                    code_postal TEXT NOT NULL,
+                    type_batiment TEXT NOT NULL,
+                    usage_batiment TEXT NOT NULL,
+                    superficie_terrain REAL,
+                    superficie_batiment REAL NOT NULL,
+                    nombre_etages INTEGER DEFAULT 1,
+                    nombre_logements INTEGER,
+                    type_construction TEXT,
+                    style_architectural TEXT,
+                    contraintes_terrain TEXT,
+                    exigences_speciales TEXT,
+                    plans_requis TEXT NOT NULL,
+                    services_inclus TEXT,
+                    besoin_3d BOOLEAN DEFAULT 0,
+                    besoin_permis BOOLEAN DEFAULT 1,
+                    certificat_localisation TEXT,
+                    photos_terrain TEXT,
+                    croquis_client TEXT,
+                    documents_urbanisme TEXT,
+                    budget_construction TEXT,
+                    budget_architecture TEXT,
+                    date_debut_souhaite DATE,
+                    date_livraison_plans DATE,
+                    niveau_urgence TEXT DEFAULT 'normal',
+                    architecte_assigne TEXT,
+                    numero_oaq TEXT,
+                    plans_preliminaires TEXT,
+                    plans_finaux TEXT,
+                    devis_architecture TEXT,
+                    rapport_urbanisme TEXT,
+                    estimation_couts_construction TEXT,
+                    prix_service REAL,
+                    modalite_paiement TEXT,
+                    pourcentage_complete INTEGER DEFAULT 0,
+                    statut TEXT DEFAULT 'recue',
+                    notes_internes TEXT,
+                    commentaires_client TEXT,
+                    raison_refus TEXT,
+                    date_demande TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    date_analyse TIMESTAMP,
+                    date_acceptation TIMESTAMP,
+                    date_debut_plans TIMESTAMP,
+                    date_revision TIMESTAMP,
+                    date_approbation TIMESTAMP,
+                    date_livraison TIMESTAMP,
+                    date_paiement TIMESTAMP,
+                    numero_reference TEXT UNIQUE,
+                    numero_projet_architecte TEXT,
+                    lead_id INTEGER,
+                    conforme_zonage BOOLEAN,
+                    conforme_cnb BOOLEAN,
+                    validation_ingenieur BOOLEAN,
+                    validation_urbanisme BOOLEAN,
+                    FOREIGN KEY (lead_id) REFERENCES leads (id)
+                )
+            ''')
+            
+            # Créer les index
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_arch_statut ON demandes_architecture(statut)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_arch_client ON demandes_architecture(email_client)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_arch_date ON demandes_architecture(date_demande)')
+            
+            conn.commit()
+            print("Table demandes_architecture créée avec succès")
+            
+    except Exception as e:
+        print(f"Erreur lors de la création de la table architecture: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+def verifier_et_creer_table_ingenieur():
+    """Vérifie si la table ingénieur existe, sinon la crée"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Vérifier si la table existe
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='demandes_ingenieur'")
+        if not cursor.fetchone():
+            print("Création de la table demandes_ingenieur...")
+            
+            # Créer la table demandes_ingenieur
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS demandes_ingenieur (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    nom_client TEXT NOT NULL,
+                    email_client TEXT NOT NULL,
+                    telephone_client TEXT NOT NULL,
+                    adresse_projet TEXT NOT NULL,
+                    ville TEXT NOT NULL,
+                    code_postal TEXT NOT NULL,
+                    type_structure TEXT NOT NULL,
+                    type_batiment TEXT,
+                    usage_structure TEXT NOT NULL,
+                    superficie_projet REAL,
+                    hauteur_structure REAL,
+                    nombre_etages INTEGER DEFAULT 1,
+                    charge_exploitation TEXT,
+                    type_construction TEXT,
+                    sol_porteur TEXT,
+                    zone_sismique TEXT,
+                    contraintes_particulieres TEXT,
+                    normes_requises TEXT,
+                    services_demandes TEXT NOT NULL,
+                    calculs_requis TEXT,
+                    plans_requis TEXT,
+                    surveillance_chantier BOOLEAN DEFAULT 0,
+                    certification_requise BOOLEAN DEFAULT 1,
+                    plans_architecte TEXT,
+                    etude_sol TEXT,
+                    photos_existant TEXT,
+                    autres_documents TEXT,
+                    budget_structure TEXT,
+                    budget_ingenieur TEXT,
+                    date_debut_souhaite DATE,
+                    date_livraison_souhaite DATE,
+                    niveau_urgence TEXT DEFAULT 'normal',
+                    ingenieur_assigne TEXT,
+                    numero_oiq TEXT,
+                    calculs_structures TEXT,
+                    plans_structures TEXT,
+                    specifications_techniques TEXT,
+                    rapport_surveillance TEXT,
+                    certificat_conformite TEXT,
+                    prix_service REAL,
+                    modalite_paiement TEXT,
+                    taux_horaire REAL,
+                    pourcentage_complete INTEGER DEFAULT 0,
+                    statut TEXT DEFAULT 'recue',
+                    notes_internes TEXT,
+                    commentaires_client TEXT,
+                    raison_refus TEXT,
+                    date_demande TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    date_analyse TIMESTAMP,
+                    date_acceptation TIMESTAMP,
+                    date_debut_calculs TIMESTAMP,
+                    date_fin_calculs TIMESTAMP,
+                    date_debut_plans TIMESTAMP,
+                    date_fin_plans TIMESTAMP,
+                    date_livraison TIMESTAMP,
+                    date_paiement TIMESTAMP,
+                    numero_reference TEXT UNIQUE,
+                    numero_projet_ingenieur TEXT,
+                    lead_id INTEGER,
+                    demande_architecture_id INTEGER,
+                    conforme_cnb BOOLEAN,
+                    conforme_csa BOOLEAN,
+                    validation_pairs BOOLEAN,
+                    analyse_sismique BOOLEAN DEFAULT 0,
+                    analyse_vent BOOLEAN DEFAULT 0,
+                    analyse_neige BOOLEAN DEFAULT 0,
+                    analyse_dynamique BOOLEAN DEFAULT 0,
+                    modelisation_3d BOOLEAN DEFAULT 0,
+                    FOREIGN KEY (lead_id) REFERENCES leads (id),
+                    FOREIGN KEY (demande_architecture_id) REFERENCES demandes_architecture (id)
+                )
+            ''')
+            
+            # Créer les index
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_ing_statut ON demandes_ingenieur(statut)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_ing_client ON demandes_ingenieur(email_client)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_ing_date ON demandes_ingenieur(date_demande)')
+            
+            conn.commit()
+            print("Table demandes_ingenieur créée avec succès")
+            
+    except Exception as e:
+        print(f"Erreur lors de la création de la table ingénieur: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+def get_demandes_architecture_admin() -> List[Dict]:
+    """Récupère toutes les demandes d'architecture pour l'admin"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_architecture()
+    
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        cursor.execute('''
+            SELECT id, nom_client, email_client, telephone_client, ville, type_batiment,
+                   superficie_batiment, nombre_etages, budget_construction, prix_service,
+                   statut, date_demande, numero_reference, niveau_urgence, 
+                   pourcentage_complete, usage_batiment
+            FROM demandes_architecture
+            ORDER BY date_demande DESC
+        ''')
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            conn.close()
+            return []
+        else:
+            raise
     
     demandes = []
     for row in cursor.fetchall():
@@ -4840,29 +5058,39 @@ def get_demandes_architecture_admin() -> List[Dict]:
 
 def get_stats_architecture() -> Dict:
     """Récupère les statistiques du service d'architecture"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_architecture()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('SELECT COUNT(*) FROM demandes_architecture')
-    total = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM demandes_architecture WHERE statut IN ('en_cours', 'revision', 'acceptee')")
-    en_cours = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT AVG(superficie_batiment) FROM demandes_architecture WHERE superficie_batiment IS NOT NULL')
-    superficie_avg = cursor.fetchone()[0] or 0
-    
-    cursor.execute('SELECT SUM(prix_service) FROM demandes_architecture WHERE prix_service IS NOT NULL')
-    ca_total = cursor.fetchone()[0] or 0
-    
-    conn.close()
-    
-    return {
-        'total': total,
-        'en_cours': en_cours,
-        'superficie_moyenne': superficie_avg,
-        'ca_total': ca_total
-    }
+    try:
+        cursor.execute('SELECT COUNT(*) FROM demandes_architecture')
+        total = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM demandes_architecture WHERE statut IN ('en_cours', 'revision', 'acceptee')")
+        en_cours = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT AVG(superficie_batiment) FROM demandes_architecture WHERE superficie_batiment IS NOT NULL')
+        superficie_avg = cursor.fetchone()[0] or 0
+        
+        cursor.execute('SELECT SUM(prix_service) FROM demandes_architecture WHERE prix_service IS NOT NULL')
+        ca_total = cursor.fetchone()[0] or 0
+        
+        conn.close()
+        
+        return {
+            'total': total,
+            'en_cours': en_cours,
+            'superficie_moyenne': superficie_avg,
+            'ca_total': ca_total
+        }
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            conn.close()
+            return {'total': 0, 'en_cours': 0, 'superficie_moyenne': 0, 'ca_total': 0}
+        else:
+            raise
 
 def mettre_a_jour_statut_architecture(demande_id: int, nouveau_statut: str, notes: str, pourcentage: int) -> bool:
     """Met à jour le statut d'une demande d'architecture"""
@@ -4887,17 +5115,27 @@ def mettre_a_jour_statut_architecture(demande_id: int, nouveau_statut: str, note
 
 def get_demandes_ingenieur_admin() -> List[Dict]:
     """Récupère toutes les demandes d'ingénieur pour l'admin"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_ingenieur()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, nom_client, email_client, telephone_client, ville, type_structure,
-               superficie_projet, nombre_etages, budget_ingenieur, prix_service,
-               statut, date_demande, numero_reference, niveau_urgence, 
-               pourcentage_complete, usage_structure, type_construction, services_demandes
-        FROM demandes_ingenieur
-        ORDER BY date_demande DESC
-    ''')
+    try:
+        cursor.execute('''
+            SELECT id, nom_client, email_client, telephone_client, ville, type_structure,
+                   superficie_projet, nombre_etages, budget_ingenieur, prix_service,
+                   statut, date_demande, numero_reference, niveau_urgence, 
+                   pourcentage_complete, usage_structure, type_construction, services_demandes
+            FROM demandes_ingenieur
+            ORDER BY date_demande DESC
+        ''')
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            conn.close()
+            return []
+        else:
+            raise
     
     demandes = []
     for row in cursor.fetchall():
@@ -4927,29 +5165,39 @@ def get_demandes_ingenieur_admin() -> List[Dict]:
 
 def get_stats_ingenieur() -> Dict:
     """Récupère les statistiques du service d'ingénieur"""
+    # Vérifier et créer la table si nécessaire
+    verifier_et_creer_table_ingenieur()
+    
     conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     
-    cursor.execute('SELECT COUNT(*) FROM demandes_ingenieur')
-    total = cursor.fetchone()[0]
-    
-    cursor.execute("SELECT COUNT(*) FROM demandes_ingenieur WHERE statut IN ('calculs', 'plans', 'revision', 'acceptee')")
-    en_cours = cursor.fetchone()[0]
-    
-    cursor.execute('SELECT AVG(superficie_projet) FROM demandes_ingenieur WHERE superficie_projet IS NOT NULL')
-    superficie_avg = cursor.fetchone()[0] or 0
-    
-    cursor.execute('SELECT SUM(prix_service) FROM demandes_ingenieur WHERE prix_service IS NOT NULL')
-    ca_total = cursor.fetchone()[0] or 0
-    
-    conn.close()
-    
-    return {
-        'total': total,
-        'en_cours': en_cours,
-        'superficie_moyenne': superficie_avg,
-        'ca_total': ca_total
-    }
+    try:
+        cursor.execute('SELECT COUNT(*) FROM demandes_ingenieur')
+        total = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM demandes_ingenieur WHERE statut IN ('calculs', 'plans', 'revision', 'acceptee')")
+        en_cours = cursor.fetchone()[0]
+        
+        cursor.execute('SELECT AVG(superficie_projet) FROM demandes_ingenieur WHERE superficie_projet IS NOT NULL')
+        superficie_avg = cursor.fetchone()[0] or 0
+        
+        cursor.execute('SELECT SUM(prix_service) FROM demandes_ingenieur WHERE prix_service IS NOT NULL')
+        ca_total = cursor.fetchone()[0] or 0
+        
+        conn.close()
+        
+        return {
+            'total': total,
+            'en_cours': en_cours,
+            'superficie_moyenne': superficie_avg,
+            'ca_total': ca_total
+        }
+    except sqlite3.OperationalError as e:
+        if "no such table" in str(e):
+            conn.close()
+            return {'total': 0, 'en_cours': 0, 'superficie_moyenne': 0, 'ca_total': 0}
+        else:
+            raise
 
 def mettre_a_jour_statut_ingenieur(demande_id: int, nouveau_statut: str, notes: str, pourcentage: int) -> bool:
     """Met à jour le statut d'une demande d'ingénieur"""
