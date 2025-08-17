@@ -13,7 +13,7 @@ import io
 import base64
 
 # Configuration du stockage persistant
-DATA_DIR = os.getenv('DATA_DIR', '/opt/render/project/data')
+DATA_DIR = os.getenv('DATA_DIR', '.')  # Utilise le répertoire courant en développement
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -1919,6 +1919,9 @@ def main():
              "📋 Mes appels d'offres",
              "🏢 Espace Entrepreneurs",
              "💰 Service d'estimation",
+             "📐 Service de technologue",
+             "🏛️ Service d'architecture",
+             "🔧 Service d'ingénieur",
              "⚙️ Administration"],
             index=0,
             help="Sélectionnez la section où vous voulez aller"
@@ -2038,6 +2041,12 @@ def main():
             st.session_state.page = 'entrepreneur'
         elif "estimation" in page.lower() or "service d'estimation" in page.lower():
             st.session_state.page = 'service_estimation'
+        elif "technologue" in page.lower() or "service de technologue" in page.lower():
+            st.session_state.page = 'service_technologue'
+        elif "architecture" in page.lower() or "service d'architecture" in page.lower():
+            st.session_state.page = 'service_architecture'
+        elif "ingénieur" in page.lower() or "service d'ingénieur" in page.lower():
+            st.session_state.page = 'service_ingenieur'
         elif "administration" in page.lower():
             st.session_state.page = 'admin'
     
@@ -2062,6 +2071,12 @@ def main():
         page_mes_projets()
     elif st.session_state.page == 'service_estimation':
         page_service_estimation()
+    elif st.session_state.page == 'service_technologue':
+        page_service_technologue()
+    elif st.session_state.page == 'service_architecture':
+        page_service_architecture()
+    elif st.session_state.page == 'service_ingenieur':
+        page_service_ingenieur()
     elif st.session_state.page == 'entrepreneur':
         page_espace_entrepreneur()
     elif st.session_state.page == 'admin':
@@ -3706,7 +3721,7 @@ def page_administration():
                 st.rerun()
         
         # Dashboard administrateur avec onglets
-        tab1, tab2, tab3, tab4 = st.tabs(["📊 Vue d'ensemble", "👥 Gestion des entrepreneurs", "📋 Gestion des soumissions", "💰 Gestion des estimations"])
+        tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["📊 Vue d'ensemble", "👥 Gestion des entrepreneurs", "📋 Gestion des soumissions", "💰 Gestion des estimations", "📐 Technologue", "🏛️ Architecture", "🔧 Ingénieur"])
         
         with tab1:
             st.markdown("### 📊 Statistiques globales de SEAOP")
@@ -4043,6 +4058,300 @@ def page_administration():
                 - Upload de plans, photos et description détaillée du projet
                 - Suivi en temps réel du statut de leur demande
                 """)
+        
+        with tab5:
+            st.markdown("### 📐 Gestion des demandes de technologue")
+            
+            demandes_tech = get_demandes_technologue_admin()
+            
+            if demandes_tech:
+                # Statistiques
+                st.markdown("#### 📊 Statistiques du service")
+                stats_tech = get_stats_technologue()
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total demandes", stats_tech['total'])
+                with col2:
+                    st.metric("En cours", stats_tech['en_cours'])
+                with col3:
+                    st.metric("Superficie moyenne", f"{stats_tech['superficie_moyenne']:,.0f} pi²")
+                with col4:
+                    st.metric("CA total", f"{stats_tech['ca_total']:,.2f}$")
+                
+                # Liste des demandes
+                st.markdown("#### 📋 Demandes de technologue")
+                
+                for demande in demandes_tech:
+                    with st.expander(f"📐 {demande['numero_reference']} - {demande['nom_client']}"):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.markdown(f"**Client:** {demande['nom_client']}")
+                            st.markdown(f"**Email:** {demande['email_client']}")
+                            st.markdown(f"**Tél:** {demande['telephone_client']}")
+                            st.markdown(f"**Ville:** {demande['ville']}")
+                        
+                        with col2:
+                            st.markdown(f"**Type:** {demande['type_batiment']}")
+                            st.markdown(f"**Superficie:** {demande['superficie_batiment']:,.0f} pi²")
+                            st.markdown(f"**Étages:** {demande['nombre_etages']}")
+                            st.markdown(f"**Budget technologue:** {demande['budget_technologue']}")
+                        
+                        with col3:
+                            # Indicateur d'urgence
+                            urgence_colors = {
+                                'faible': '🟢', 'normal': '🟡',
+                                'eleve': '🟠', 'critique': '🔴'
+                            }
+                            urgence_icon = urgence_colors.get(demande['niveau_urgence'], '🟡')
+                            st.markdown(f"**Urgence:** {urgence_icon} {demande['niveau_urgence'].title()}")
+                            st.markdown(f"**Prix service:** {demande['prix_service']:,.2f}$")
+                            st.markdown(f"**Statut:** {demande['statut'].replace('_', ' ').title()}")
+                            
+                            if demande['pourcentage_complete']:
+                                st.progress(demande['pourcentage_complete'] / 100)
+                                st.caption(f"Progression: {demande['pourcentage_complete']}%")
+                        
+                        st.markdown("---")
+                        st.markdown(f"**Usage du bâtiment:** {demande['usage_batiment']}")
+                        st.markdown(f"**Type construction:** {demande['type_construction']}")
+                        st.markdown(f"**Services inclus:** {demande['services_inclus']}")
+                        
+                        # Gestion du statut
+                        st.markdown("#### 🔧 Gestion de la demande")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            nouveau_statut = st.selectbox(
+                                "Changer le statut",
+                                ['recue', 'analyse', 'acceptee', 'en_cours', 'revision', 'terminee'],
+                                index=['recue', 'analyse', 'acceptee', 'en_cours', 'revision', 'terminee'].index(demande['statut']),
+                                key=f"statut_tech_{demande['id']}"
+                            )
+                            
+                            pourcentage = st.slider(
+                                "Progression (%)",
+                                0, 100, 
+                                value=demande['pourcentage_complete'] or 0,
+                                key=f"progress_tech_{demande['id']}"
+                            )
+                        
+                        with col2:
+                            notes = st.text_area(
+                                "Notes internes",
+                                value="",
+                                height=100,
+                                key=f"notes_tech_{demande['id']}"
+                            )
+                        
+                        if st.button(f"💾 Mettre à jour", key=f"update_tech_{demande['id']}"):
+                            if mettre_a_jour_statut_technologue(
+                                demande['id'], nouveau_statut, notes, pourcentage
+                            ):
+                                st.success("✅ Demande mise à jour")
+                                st.rerun()
+                            else:
+                                st.error("❌ Erreur lors de la mise à jour")
+            else:
+                st.info("📭 Aucune demande de technologue pour le moment")
+        
+        with tab6:
+            st.markdown("### 🏛️ Gestion des demandes d'architecture")
+            
+            demandes_arch = get_demandes_architecture_admin()
+            
+            if demandes_arch:
+                # Statistiques
+                st.markdown("#### 📊 Statistiques du service")
+                stats_arch = get_stats_architecture()
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total demandes", stats_arch['total'])
+                with col2:
+                    st.metric("En cours", stats_arch['en_cours'])
+                with col3:
+                    st.metric("Superficie moyenne", f"{stats_arch['superficie_moyenne']:,.0f} pi²")
+                with col4:
+                    st.metric("CA total", f"{stats_arch['ca_total']:,.2f}$")
+                
+                # Liste des demandes
+                st.markdown("#### 📋 Demandes d'architecture")
+                
+                for demande in demandes_arch:
+                    with st.expander(f"📐 {demande['numero_reference']} - {demande['nom_client']}"):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.markdown(f"**Client:** {demande['nom_client']}")
+                            st.markdown(f"**Email:** {demande['email_client']}")
+                            st.markdown(f"**Tél:** {demande['telephone_client']}")
+                            st.markdown(f"**Ville:** {demande['ville']}")
+                        
+                        with col2:
+                            st.markdown(f"**Type:** {demande['type_batiment']}")
+                            st.markdown(f"**Superficie:** {demande['superficie_batiment']:,.0f} pi²")
+                            st.markdown(f"**Étages:** {demande['nombre_etages']}")
+                            st.markdown(f"**Budget construction:** {demande['budget_construction']}")
+                        
+                        with col3:
+                            # Indicateur d'urgence
+                            urgence_colors = {
+                                'faible': '🟢', 'normal': '🟡',
+                                'eleve': '🟠', 'critique': '🔴'
+                            }
+                            urgence_icon = urgence_colors.get(demande['niveau_urgence'], '🟡')
+                            st.markdown(f"**Urgence:** {urgence_icon} {demande['niveau_urgence'].title()}")
+                            st.markdown(f"**Prix service:** {demande['prix_service']:,.2f}$")
+                            st.markdown(f"**Statut:** {demande['statut'].replace('_', ' ').title()}")
+                            
+                            if demande['pourcentage_complete']:
+                                st.progress(demande['pourcentage_complete'] / 100)
+                                st.caption(f"Progression: {demande['pourcentage_complete']}%")
+                        
+                        st.markdown("---")
+                        st.markdown(f"**Usage du bâtiment:** {demande['usage_batiment']}")
+                        
+                        # Gestion du statut
+                        st.markdown("#### 🔧 Gestion de la demande")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            nouveau_statut = st.selectbox(
+                                "Changer le statut",
+                                ['recue', 'en_analyse', 'acceptee', 'en_cours', 
+                                 'revision', 'approuvee', 'livree', 'terminee'],
+                                index=['recue', 'en_analyse', 'acceptee', 'en_cours', 
+                                       'revision', 'approuvee', 'livree', 'terminee'].index(demande['statut']),
+                                key=f"statut_arch_{demande['id']}"
+                            )
+                            
+                            pourcentage = st.slider(
+                                "Progression (%)",
+                                0, 100, 
+                                value=demande['pourcentage_complete'] or 0,
+                                key=f"progress_arch_{demande['id']}"
+                            )
+                        
+                        with col2:
+                            notes = st.text_area(
+                                "Notes internes",
+                                value="",
+                                height=100,
+                                key=f"notes_arch_{demande['id']}"
+                            )
+                        
+                        if st.button(f"💾 Mettre à jour", key=f"update_arch_{demande['id']}"):
+                            if mettre_a_jour_statut_architecture(
+                                demande['id'], nouveau_statut, notes, pourcentage
+                            ):
+                                st.success("✅ Demande mise à jour")
+                                st.rerun()
+                            else:
+                                st.error("❌ Erreur lors de la mise à jour")
+            else:
+                st.info("📭 Aucune demande d'architecture pour le moment")
+        
+        with tab7:
+            st.markdown("### 🔧 Gestion des demandes d'ingénieur")
+            
+            demandes_ing = get_demandes_ingenieur_admin()
+            
+            if demandes_ing:
+                # Statistiques
+                st.markdown("#### 📊 Statistiques du service")
+                stats_ing = get_stats_ingenieur()
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("Total demandes", stats_ing['total'])
+                with col2:
+                    st.metric("En cours", stats_ing['en_cours'])
+                with col3:
+                    st.metric("Superficie moyenne", f"{stats_ing['superficie_moyenne']:,.0f} pi²")
+                with col4:
+                    st.metric("CA total", f"{stats_ing['ca_total']:,.2f}$")
+                
+                # Liste des demandes
+                st.markdown("#### 📋 Demandes d'ingénieur")
+                
+                for demande in demandes_ing:
+                    with st.expander(f"🔧 {demande['numero_reference']} - {demande['nom_client']}"):
+                        col1, col2, col3 = st.columns(3)
+                        
+                        with col1:
+                            st.markdown(f"**Client:** {demande['nom_client']}")
+                            st.markdown(f"**Email:** {demande['email_client']}")
+                            st.markdown(f"**Tél:** {demande['telephone_client']}")
+                            st.markdown(f"**Ville:** {demande['ville']}")
+                        
+                        with col2:
+                            st.markdown(f"**Type structure:** {demande['type_structure']}")
+                            st.markdown(f"**Superficie:** {demande['superficie_projet']:,.0f} pi²")
+                            st.markdown(f"**Étages:** {demande['nombre_etages']}")
+                            st.markdown(f"**Budget ingénieur:** {demande['budget_ingenieur']}")
+                        
+                        with col3:
+                            # Indicateur d'urgence
+                            urgence_colors = {
+                                'faible': '🟢', 'normal': '🟡',
+                                'eleve': '🟠', 'critique': '🔴'
+                            }
+                            urgence_icon = urgence_colors.get(demande['niveau_urgence'], '🟡')
+                            st.markdown(f"**Urgence:** {urgence_icon} {demande['niveau_urgence'].title()}")
+                            st.markdown(f"**Prix service:** {demande['prix_service']:,.2f}$")
+                            st.markdown(f"**Statut:** {demande['statut'].replace('_', ' ').title()}")
+                            
+                            if demande['pourcentage_complete']:
+                                st.progress(demande['pourcentage_complete'] / 100)
+                                st.caption(f"Progression: {demande['pourcentage_complete']}%")
+                        
+                        st.markdown("---")
+                        st.markdown(f"**Usage structure:** {demande['usage_structure']}")
+                        st.markdown(f"**Type construction:** {demande['type_construction']}")
+                        st.markdown(f"**Services demandés:** {demande['services_demandes']}")
+                        
+                        # Gestion du statut
+                        st.markdown("#### 🔧 Gestion de la demande")
+                        
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            nouveau_statut = st.selectbox(
+                                "Changer le statut",
+                                ['recue', 'analyse', 'acceptee', 'calculs', 'plans', 'revision', 'terminee'],
+                                index=['recue', 'analyse', 'acceptee', 'calculs', 'plans', 'revision', 'terminee'].index(demande['statut']),
+                                key=f"statut_ing_{demande['id']}"
+                            )
+                            
+                            pourcentage = st.slider(
+                                "Progression (%)",
+                                0, 100, 
+                                value=demande['pourcentage_complete'] or 0,
+                                key=f"progress_ing_{demande['id']}"
+                            )
+                        
+                        with col2:
+                            notes = st.text_area(
+                                "Notes internes",
+                                value="",
+                                height=100,
+                                key=f"notes_ing_{demande['id']}"
+                            )
+                        
+                        if st.button(f"💾 Mettre à jour", key=f"update_ing_{demande['id']}"):
+                            if mettre_a_jour_statut_ingenieur(
+                                demande['id'], nouveau_statut, notes, pourcentage
+                            ):
+                                st.success("✅ Demande mise à jour")
+                                st.rerun()
+                            else:
+                                st.error("❌ Erreur lors de la mise à jour")
+            else:
+                st.info("📭 Aucune demande d'ingénieur pour le moment")
 
 # ================== SYSTÈME DE DÉLAIS/URGENCE ==================
 
@@ -4488,6 +4797,2210 @@ def page_service_estimation():
                     st.info("Aucune estimation trouvée pour cet email.")
             else:
                 st.error("Format d'email invalide")
+
+# === FONCTIONS POUR SERVICE D'ARCHITECTURE ===
+
+def get_demandes_architecture_admin() -> List[Dict]:
+    """Récupère toutes les demandes d'architecture pour l'admin"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, nom_client, email_client, telephone_client, ville, type_batiment,
+               superficie_batiment, nombre_etages, budget_construction, prix_service,
+               statut, date_demande, numero_reference, niveau_urgence, 
+               pourcentage_complete, usage_batiment
+        FROM demandes_architecture
+        ORDER BY date_demande DESC
+    ''')
+    
+    demandes = []
+    for row in cursor.fetchall():
+        demandes.append({
+            'id': row[0],
+            'nom_client': row[1],
+            'email_client': row[2],
+            'telephone_client': row[3],
+            'ville': row[4],
+            'type_batiment': row[5],
+            'superficie_batiment': row[6],
+            'nombre_etages': row[7],
+            'budget_construction': row[8],
+            'prix_service': row[9],
+            'statut': row[10],
+            'date_demande': row[11],
+            'numero_reference': row[12],
+            'niveau_urgence': row[13],
+            'pourcentage_complete': row[14],
+            'usage_batiment': row[15]
+        })
+    
+    conn.close()
+    return demandes
+
+def get_stats_architecture() -> Dict:
+    """Récupère les statistiques du service d'architecture"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM demandes_architecture')
+    total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM demandes_architecture WHERE statut IN ('en_cours', 'revision', 'acceptee')")
+    en_cours = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT AVG(superficie_batiment) FROM demandes_architecture WHERE superficie_batiment IS NOT NULL')
+    superficie_avg = cursor.fetchone()[0] or 0
+    
+    cursor.execute('SELECT SUM(prix_service) FROM demandes_architecture WHERE prix_service IS NOT NULL')
+    ca_total = cursor.fetchone()[0] or 0
+    
+    conn.close()
+    
+    return {
+        'total': total,
+        'en_cours': en_cours,
+        'superficie_moyenne': superficie_avg,
+        'ca_total': ca_total
+    }
+
+def mettre_a_jour_statut_architecture(demande_id: int, nouveau_statut: str, notes: str, pourcentage: int) -> bool:
+    """Met à jour le statut d'une demande d'architecture"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE demandes_architecture 
+            SET statut = ?, notes_internes = ?, pourcentage_complete = ?
+            WHERE id = ?
+        ''', (nouveau_statut, notes, pourcentage, demande_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur mise à jour architecture: {e}")
+        return False
+
+# === FONCTIONS POUR SERVICE D'INGÉNIEUR ===
+
+def get_demandes_ingenieur_admin() -> List[Dict]:
+    """Récupère toutes les demandes d'ingénieur pour l'admin"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, nom_client, email_client, telephone_client, ville, type_structure,
+               superficie_projet, nombre_etages, budget_ingenieur, prix_service,
+               statut, date_demande, numero_reference, niveau_urgence, 
+               pourcentage_complete, usage_structure, type_construction, services_demandes
+        FROM demandes_ingenieur
+        ORDER BY date_demande DESC
+    ''')
+    
+    demandes = []
+    for row in cursor.fetchall():
+        demandes.append({
+            'id': row[0],
+            'nom_client': row[1],
+            'email_client': row[2],
+            'telephone_client': row[3],
+            'ville': row[4],
+            'type_structure': row[5],
+            'superficie_projet': row[6],
+            'nombre_etages': row[7],
+            'budget_ingenieur': row[8],
+            'prix_service': row[9],
+            'statut': row[10],
+            'date_demande': row[11],
+            'numero_reference': row[12],
+            'niveau_urgence': row[13],
+            'pourcentage_complete': row[14],
+            'usage_structure': row[15],
+            'type_construction': row[16],
+            'services_demandes': row[17]
+        })
+    
+    conn.close()
+    return demandes
+
+def get_stats_ingenieur() -> Dict:
+    """Récupère les statistiques du service d'ingénieur"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM demandes_ingenieur')
+    total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM demandes_ingenieur WHERE statut IN ('calculs', 'plans', 'revision', 'acceptee')")
+    en_cours = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT AVG(superficie_projet) FROM demandes_ingenieur WHERE superficie_projet IS NOT NULL')
+    superficie_avg = cursor.fetchone()[0] or 0
+    
+    cursor.execute('SELECT SUM(prix_service) FROM demandes_ingenieur WHERE prix_service IS NOT NULL')
+    ca_total = cursor.fetchone()[0] or 0
+    
+    conn.close()
+    
+    return {
+        'total': total,
+        'en_cours': en_cours,
+        'superficie_moyenne': superficie_avg,
+        'ca_total': ca_total
+    }
+
+def mettre_a_jour_statut_ingenieur(demande_id: int, nouveau_statut: str, notes: str, pourcentage: int) -> bool:
+    """Met à jour le statut d'une demande d'ingénieur"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE demandes_ingenieur 
+            SET statut = ?, notes_internes = ?, pourcentage_complete = ?
+            WHERE id = ?
+        ''', (nouveau_statut, notes, pourcentage, demande_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur mise à jour ingénieur: {e}")
+        return False
+
+# === FONCTIONS POUR SERVICE DE TECHNOLOGUE ===
+
+def calculer_prix_technologue(superficie: float, services: list, options: dict) -> float:
+    """Calcule le prix du service de technologue basé sur superficie et services"""
+    # Prix de base selon la superficie (≤ 6000 pi²)
+    if superficie <= 1000:
+        prix_base = 2500
+    elif superficie <= 2500:
+        prix_base = 3500
+    elif superficie <= 4000:
+        prix_base = 4500
+    elif superficie <= 6000:
+        prix_base = 6000
+    else:
+        # Au-delà de 6000 pi², recommander un architecte
+        prix_base = 7500
+    
+    # Ajout par pied carré selon la complexité
+    if superficie <= 3000:
+        prix_base += superficie * 0.80  # Projets simples
+    else:
+        prix_base += superficie * 1.00  # Projets plus complexes
+    
+    # Services additionnels
+    multiplicateur_services = 1.0
+    if 'electricite' in services:
+        multiplicateur_services += 0.15
+    if 'plomberie' in services:
+        multiplicateur_services += 0.12
+    if 'chauffage' in services:
+        multiplicateur_services += 0.10
+    
+    # Options spéciales
+    if options.get('modele_3d', False):
+        prix_base += 800
+    if options.get('visite_terrain', False):
+        prix_base += 350
+    if options.get('revision_multiple', False):
+        prix_base += 400
+    if options.get('urgence_elevee', False):
+        multiplicateur_services += 0.25
+    
+    return round(prix_base * multiplicateur_services, 2)
+
+def creer_demande_technologue(demande_data: Dict) -> str:
+    """Crée une nouvelle demande de plans de technologue"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Générer un numéro de référence unique
+        numero_reference = f"SEAOP-TECH-{datetime.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        
+        # Calculer le prix estimé
+        superficie = float(demande_data.get('superficie_batiment', 0))
+        services = demande_data.get('services_inclus', '').split(',')
+        options = {
+            'modele_3d': demande_data.get('besoin_3d', False),
+            'visite_terrain': demande_data.get('visite_terrain', False),
+            'urgence_elevee': demande_data.get('niveau_urgence') == 'eleve'
+        }
+        
+        prix_service = calculer_prix_technologue(superficie, services, options)
+        
+        # Préparer les données avec le prix calculé
+        demande_data['numero_reference'] = numero_reference
+        demande_data['prix_service'] = prix_service
+        demande_data['date_demande'] = datetime.datetime.now().isoformat()
+        
+        # Insérer la demande
+        placeholders = ', '.join(['?' for _ in demande_data])
+        columns = ', '.join(demande_data.keys())
+        
+        cursor.execute(f'''
+            INSERT INTO demandes_technologue ({columns})
+            VALUES ({placeholders})
+        ''', list(demande_data.values()))
+        
+        demande_id = cursor.lastrowid
+        
+        # Créer une notification pour l'admin
+        cursor.execute('''
+            INSERT INTO notifications (
+                utilisateur_type, utilisateur_id, type_notification,
+                titre, message, lien_id
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            'admin', 0, 'nouvelle_demande_technologue',
+            'Nouvelle demande technologue',
+            f'{demande_data["nom_client"]} - {demande_data["type_batiment"]} de {superficie:,.0f} pi2',
+            demande_id
+        ))
+        
+        conn.commit()
+        return numero_reference
+        
+    except Exception as e:
+        print(f"Erreur lors de la création de la demande de technologue: {e}")
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+def get_demandes_technologue_client(email_client: str) -> List[Dict]:
+    """Récupère les demandes de technologue d'un client"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, type_batiment, usage_batiment, superficie_batiment,
+               ville, prix_service, statut, date_demande, numero_reference,
+               date_livraison_plans, pourcentage_complete, plans_finaux
+        FROM demandes_technologue
+        WHERE email_client = ?
+        ORDER BY date_demande DESC
+    ''', (email_client,))
+    
+    demandes = []
+    for row in cursor.fetchall():
+        demandes.append({
+            'id': row[0],
+            'type_batiment': row[1],
+            'usage_batiment': row[2],
+            'superficie_batiment': row[3],
+            'ville': row[4],
+            'prix_service': row[5],
+            'statut': row[6],
+            'date_demande': row[7],
+            'numero_reference': row[8],
+            'date_livraison_plans': row[9],
+            'pourcentage_complete': row[10],
+            'plans_finaux': row[11]
+        })
+    
+    conn.close()
+    return demandes
+
+def get_demandes_technologue_admin() -> List[Dict]:
+    """Récupère toutes les demandes de technologue pour l'admin"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, nom_client, email_client, telephone_client, ville, type_batiment,
+               superficie_batiment, nombre_etages, budget_technologue, prix_service,
+               statut, date_demande, numero_reference, niveau_urgence, 
+               pourcentage_complete, usage_batiment, type_construction, services_inclus
+        FROM demandes_technologue
+        ORDER BY date_demande DESC
+    ''')
+    
+    demandes = []
+    for row in cursor.fetchall():
+        demandes.append({
+            'id': row[0],
+            'nom_client': row[1],
+            'email_client': row[2],
+            'telephone_client': row[3],
+            'ville': row[4],
+            'type_batiment': row[5],
+            'superficie_batiment': row[6],
+            'nombre_etages': row[7],
+            'budget_technologue': row[8],
+            'prix_service': row[9],
+            'statut': row[10],
+            'date_demande': row[11],
+            'numero_reference': row[12],
+            'niveau_urgence': row[13],
+            'pourcentage_complete': row[14],
+            'usage_batiment': row[15],
+            'type_construction': row[16],
+            'services_inclus': row[17]
+        })
+    
+    conn.close()
+    return demandes
+
+def get_stats_technologue() -> Dict:
+    """Récupère les statistiques du service de technologue"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT COUNT(*) FROM demandes_technologue')
+    total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM demandes_technologue WHERE statut IN ('en_cours', 'revision', 'acceptee')")
+    en_cours = cursor.fetchone()[0]
+    
+    cursor.execute('SELECT AVG(superficie_batiment) FROM demandes_technologue WHERE superficie_batiment IS NOT NULL')
+    superficie_avg = cursor.fetchone()[0] or 0
+    
+    cursor.execute('SELECT SUM(prix_service) FROM demandes_technologue WHERE prix_service IS NOT NULL')
+    ca_total = cursor.fetchone()[0] or 0
+    
+    conn.close()
+    
+    return {
+        'total': total,
+        'en_cours': en_cours,
+        'superficie_moyenne': superficie_avg,
+        'ca_total': ca_total
+    }
+
+def mettre_a_jour_statut_technologue(demande_id: int, nouveau_statut: str, notes: str, pourcentage: int) -> bool:
+    """Met à jour le statut d'une demande de technologue"""
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            UPDATE demandes_technologue 
+            SET statut = ?, notes_internes = ?, pourcentage_complete = ?
+            WHERE id = ?
+        ''', (nouveau_statut, notes, pourcentage, demande_id))
+        
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        print(f"Erreur mise à jour technologue: {e}")
+        return False
+
+def page_service_technologue():
+    """Page du service de technologue pour projets ≤ 6000 pi²"""
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1>📐 Service de Technologue en Architecture</h1>
+        <p>Plans techniques pour projets de 6,000 pi² et moins</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Onglets pour client et consultation
+    tab1, tab2, tab3 = st.tabs(["📐 Nouvelle demande", "📋 Mes demandes", "ℹ️ Informations"])
+    
+    with tab1:
+        st.markdown("""
+        #### Obtenez des plans techniques professionnels
+        
+        **Service complet incluant :**
+        - Plans d'implantation, fondation et charpente
+        - Plans électriques et plomberie (optionnel)
+        - Conformité aux codes du bâtiment
+        - Aide pour permis de construction
+        - Visite de terrain (optionnel)
+        - Modélisation 3D (optionnel)
+        """)
+        
+        # Vérification de la superficie
+        st.info("""
+        ℹ️ **Service de technologue** : Pour projets de **6,000 pi² et moins**. 
+        Pour les projets plus grands, utilisez le Service d'architecture (architecte OAQ requis).
+        """)
+        
+        with st.form("demande_technologue"):
+            st.markdown("### 👤 Informations du client")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                nom_client = st.text_input("Nom complet *", placeholder="Jean Dupont")
+                email_client = st.text_input("Email *", placeholder="jean.dupont@email.com")
+                telephone_client = st.text_input("Téléphone *", placeholder="418-555-1234")
+            
+            with col2:
+                adresse_projet = st.text_input("Adresse du projet *", placeholder="123 Rue de la Construction")
+                ville = st.text_input("Ville *", placeholder="Québec")
+                code_postal = st.text_input("Code postal *", placeholder="G1X 2Y3")
+            
+            st.markdown("---")
+            st.markdown("### 🏠 Détails du projet")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                type_batiment = st.selectbox(
+                    "Type de bâtiment *",
+                    ["résidentiel", "commercial", "industriel", "garage", "cabanon", "autre"]
+                )
+                
+                usage_batiment = st.text_area(
+                    "Description de l'usage *",
+                    placeholder="Ex: Agrandissement cuisine avec bureau, Garage détaché 2 voitures, etc.",
+                    height=100
+                )
+                
+                superficie_terrain = st.number_input(
+                    "Superficie du terrain (pi²)",
+                    min_value=0,
+                    max_value=50000,
+                    value=8000,
+                    step=100
+                )
+            
+            with col2:
+                superficie_batiment = st.number_input(
+                    "Superficie du bâtiment (pi²) *",
+                    min_value=50,
+                    max_value=6000,
+                    value=1500,
+                    step=50,
+                    help="Maximum 6,000 pi² pour service de technologue"
+                )
+                
+                nombre_etages = st.selectbox("Nombre d'étages", [1, 2, 3])
+                nombre_pieces = st.number_input("Nombre de pièces/espaces", min_value=1, max_value=20, value=5)
+            
+            # Validation de la superficie
+            if superficie_batiment > 6000:
+                st.error("""
+                ⚠️ **Superficie trop grande** : Ce projet dépasse 6,000 pi² et nécessite un architecte.
+                Veuillez utiliser le **Service d'architecture** pour ce projet.
+                """)
+            
+            st.markdown("---")
+            st.markdown("### 🔧 Spécifications techniques")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                type_construction = st.selectbox(
+                    "Type de construction *",
+                    ["nouvelle", "agrandissement", "renovation", "garage", "remise"]
+                )
+                
+                style_architectural = st.selectbox(
+                    "Style architectural",
+                    ["traditionnel", "moderne", "rustique", "contemporain", "industriel"]
+                )
+                
+                contraintes_terrain = st.text_area(
+                    "Contraintes du terrain",
+                    placeholder="Ex: Pente, servitudes, proximité voisins, accès, etc.",
+                    height=80
+                )
+            
+            with col2:
+                exigences_speciales = st.text_area(
+                    "Exigences spéciales",
+                    placeholder="Ex: Isolation supérieure, accessibilité, normes spéciales, etc.",
+                    height=80
+                )
+                
+                plans_requis = st.selectbox(
+                    "Type de plans requis *",
+                    ["complet", "preliminaire", "concept", "permis"]
+                )
+            
+            st.markdown("---")
+            st.markdown("### 📋 Services et options")
+            
+            # Services de base inclus
+            st.markdown("**Services de base inclus :**")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                plan_implantation = st.checkbox("Plan d'implantation", value=True, disabled=True)
+                plan_fondation = st.checkbox("Plan de fondation", value=True, disabled=True)
+            with col2:
+                plan_charpente = st.checkbox("Plan de charpente", value=True, disabled=True)
+                besoin_permis = st.checkbox("Aide permis construction", value=True)
+            with col3:
+                conforme_cnb = st.checkbox("Conformité CNB", value=True, disabled=True)
+                conforme_municipal = st.checkbox("Conformité municipale", value=True, disabled=True)
+            
+            # Services optionnels
+            st.markdown("**Services optionnels :**")
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                plan_electricite = st.checkbox("Plan électrique (+15%)")
+                plan_plomberie = st.checkbox("Plan de plomberie (+12%)")
+            with col2:
+                besoin_3d = st.checkbox("Modélisation 3D (+800$)")
+                visite_terrain = st.checkbox("Visite de terrain (+350$)")
+            with col3:
+                revision_multiple = st.checkbox("Révisions multiples (+400$)")
+            
+            # Construire la liste des services
+            services_inclus = ["implantation", "fondation", "charpente"]
+            if plan_electricite:
+                services_inclus.append("electricite")
+            if plan_plomberie:
+                services_inclus.append("plomberie")
+            
+            st.markdown("---")
+            st.markdown("### 💰 Budget et délais")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                budget_construction = st.text_input(
+                    "Budget de construction estimé",
+                    placeholder="Ex: 50,000$ - 75,000$"
+                )
+                
+                date_debut_souhaite = st.date_input(
+                    "Date de début souhaitée",
+                    value=datetime.date.today() + datetime.timedelta(days=30)
+                )
+            
+            with col2:
+                budget_technologue = st.text_input(
+                    "Budget pour services technologue",
+                    placeholder="Ex: 3,000$ - 5,000$"
+                )
+                
+                date_livraison_plans = st.date_input(
+                    "Date de livraison souhaitée",
+                    value=datetime.date.today() + datetime.timedelta(days=21)
+                )
+            
+            niveau_urgence = st.selectbox(
+                "Niveau d'urgence",
+                ["normal", "eleve", "critique"],
+                format_func=lambda x: {"normal": "Normal", "eleve": "Élevé (+25%)", "critique": "Critique (+50%)"}[x]
+            )
+            
+            # Calcul du prix estimé en temps réel
+            if superficie_batiment <= 6000:
+                services_list = services_inclus
+                options = {
+                    'modele_3d': besoin_3d,
+                    'visite_terrain': visite_terrain,
+                    'revision_multiple': revision_multiple,
+                    'urgence_elevee': niveau_urgence in ['eleve', 'critique']
+                }
+                prix_estime = calculer_prix_technologue(superficie_batiment, services_list, options)
+                
+                st.markdown("---")
+                st.markdown("### 💵 Estimation du prix")
+                st.success(f"**Prix estimé : {prix_estime:,.2f}$ CAD**")
+                st.caption("Prix indicatif incluant tous les services sélectionnés")
+            
+            st.markdown("---")
+            st.markdown("### 📎 Documents à fournir (optionnel)")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                certificat_localisation = st.file_uploader(
+                    "Certificat de localisation",
+                    type=['pdf', 'jpg', 'png'],
+                    help="Document d'arpentage du terrain"
+                )
+                photos_terrain = st.file_uploader(
+                    "Photos du terrain/existant",
+                    type=['jpg', 'png', 'jpeg'],
+                    accept_multiple_files=True
+                )
+            
+            with col2:
+                croquis_client = st.file_uploader(
+                    "Croquis/idées du client",
+                    type=['pdf', 'jpg', 'png', 'jpeg'],
+                    accept_multiple_files=True
+                )
+                documents_existants = st.file_uploader(
+                    "Plans existants (si rénovation)",
+                    type=['pdf', 'dwg'],
+                    accept_multiple_files=True
+                )
+            
+            # Bouton de soumission
+            submitted = st.form_submit_button(
+                "🚀 Soumettre la demande", 
+                use_container_width=True,
+                type="primary"
+            )
+            
+            if submitted:
+                # Validation des champs obligatoires
+                if not all([nom_client, email_client, telephone_client, adresse_projet, ville, code_postal, type_batiment, usage_batiment, superficie_batiment]):
+                    st.error("❌ Veuillez remplir tous les champs obligatoires (*)")
+                elif superficie_batiment > 6000:
+                    st.error("❌ Superficie trop grande pour le service de technologue. Utilisez le Service d'architecture.")
+                elif not re.match(r'^[^@]+@[^@]+\.[^@]+$', email_client):
+                    st.error("❌ Format d'email invalide")
+                else:
+                    # Préparer les données de la demande
+                    demande_data = {
+                        'nom_client': nom_client,
+                        'email_client': email_client,
+                        'telephone_client': telephone_client,
+                        'adresse_projet': adresse_projet,
+                        'ville': ville,
+                        'code_postal': code_postal,
+                        'type_batiment': type_batiment,
+                        'usage_batiment': usage_batiment,
+                        'superficie_terrain': superficie_terrain,
+                        'superficie_batiment': superficie_batiment,
+                        'nombre_etages': nombre_etages,
+                        'nombre_pieces': nombre_pieces,
+                        'type_construction': type_construction,
+                        'style_architectural': style_architectural,
+                        'contraintes_terrain': contraintes_terrain,
+                        'exigences_speciales': exigences_speciales,
+                        'plans_requis': plans_requis,
+                        'services_inclus': ','.join(services_inclus),
+                        'besoin_3d': besoin_3d,
+                        'besoin_permis': besoin_permis,
+                        'visite_terrain': visite_terrain,
+                        'budget_construction': budget_construction,
+                        'budget_technologue': budget_technologue,
+                        'date_debut_souhaite': date_debut_souhaite.isoformat(),
+                        'date_livraison_plans': date_livraison_plans.isoformat(),
+                        'niveau_urgence': niveau_urgence,
+                        'plan_implantation': plan_implantation,
+                        'plan_fondation': plan_fondation,
+                        'plan_charpente': plan_charpente,
+                        'plan_electricite': plan_electricite,
+                        'plan_plomberie': plan_plomberie
+                    }
+                    
+                    # Encoder les fichiers si présents
+                    if certificat_localisation:
+                        demande_data['certificat_localisation'] = f"{certificat_localisation.name}:{base64.b64encode(certificat_localisation.read()).decode()}"
+                    
+                    if photos_terrain:
+                        photos_encoded = []
+                        for photo in photos_terrain:
+                            photos_encoded.append(f"{photo.name}:{base64.b64encode(photo.read()).decode()}")
+                        demande_data['photos_terrain'] = ','.join(photos_encoded)
+                    
+                    if croquis_client:
+                        croquis_encoded = []
+                        for croquis in croquis_client:
+                            croquis_encoded.append(f"{croquis.name}:{base64.b64encode(croquis.read()).decode()}")
+                        demande_data['croquis_client'] = ','.join(croquis_encoded)
+                    
+                    if documents_existants:
+                        docs_encoded = []
+                        for doc in documents_existants:
+                            docs_encoded.append(f"{doc.name}:{base64.b64encode(doc.read()).decode()}")
+                        demande_data['documents_existants'] = ','.join(docs_encoded)
+                    
+                    # Créer la demande
+                    numero_reference = creer_demande_technologue(demande_data)
+                    
+                    if numero_reference:
+                        st.success(f"""
+                        ✅ **Demande créée avec succès !**
+                        
+                        **Numéro de référence :** {numero_reference}
+                        **Prix estimé :** {prix_estime:,.2f}$ CAD
+                        
+                        Vous recevrez une confirmation par email sous peu.
+                        """)
+                        
+                        # Afficher le résumé
+                        with st.expander("📋 Résumé de votre demande"):
+                            st.write(f"**Projet :** {usage_batiment}")
+                            st.write(f"**Superficie :** {superficie_batiment:,.0f} pi²")
+                            st.write(f"**Type :** {type_batiment.title()}")
+                            st.write(f"**Services :** {', '.join(services_inclus)}")
+                            st.write(f"**Délai souhaité :** {date_livraison_plans}")
+                    else:
+                        st.error("❌ Erreur lors de la création de la demande. Veuillez réessayer.")
+    
+    with tab2:
+        st.markdown("### 📋 Consultation de mes demandes")
+        
+        # Interface de consultation pour les clients
+        email_consultation = st.text_input(
+            "Entrez votre email pour consulter vos demandes",
+            placeholder="votre.email@exemple.com"
+        )
+        
+        if email_consultation and re.match(r'^[^@]+@[^@]+\.[^@]+$', email_consultation):
+            demandes = get_demandes_technologue_client(email_consultation)
+            
+            if demandes:
+                st.success(f"📋 {len(demandes)} demande(s) trouvée(s)")
+                
+                for demande in demandes:
+                    # Mapper les statuts pour l'affichage
+                    statuts_affichage = {
+                        'recue': '🆕 Reçue',
+                        'analyse': '🔍 En analyse',
+                        'acceptee': '✅ Acceptée',
+                        'en_cours': '🔄 En cours',
+                        'revision': '📝 En révision',
+                        'terminee': '🎉 Terminée'
+                    }
+                    
+                    statut_badge = statuts_affichage.get(demande['statut'], demande['statut'])
+                    
+                    with st.expander(f"**{demande['type_batiment'].title()}** - {demande['numero_reference']} - {statut_badge}", expanded=True):
+                        col1, col2, col3 = st.columns([2, 1, 1])
+                        
+                        with col1:
+                            st.write(f"**Description :** {demande['usage_batiment'][:200]}...")
+                            st.write(f"**Superficie :** {demande['superficie_batiment']:,.0f} pi²")
+                            st.write(f"**Ville :** {demande['ville']}")
+                        
+                        with col2:
+                            st.markdown(f"**Statut :** {statut_badge}")
+                            if demande['prix_service']:
+                                st.write(f"**Prix :** {demande['prix_service']:,.2f}$")
+                            st.write(f"**Date demande :** {demande['date_demande'][:10]}")
+                        
+                        with col3:
+                            if demande['pourcentage_complete']:
+                                st.progress(demande['pourcentage_complete'] / 100)
+                                st.caption(f"Progression: {demande['pourcentage_complete']}%")
+                            
+                            if demande['date_livraison_plans']:
+                                st.write(f"**Livraison prévue :** {demande['date_livraison_plans']}")
+                        
+                        # Si les plans sont prêts, permettre le téléchargement
+                        if demande['statut'] == 'terminee' and demande['plans_finaux']:
+                            st.success("🎉 Vos plans sont prêts ! Contactez-nous pour les recevoir.")
+            else:
+                st.info("Aucune demande trouvée pour cet email.")
+        elif email_consultation:
+            st.error("Format d'email invalide")
+    
+    with tab3:
+        st.markdown("### ℹ️ Informations sur le Service de Technologue")
+        
+        st.markdown("""
+        #### 🎯 À qui s'adresse ce service ?
+        
+        Le **Service de technologue** est conçu pour les projets de **6,000 pi² et moins** qui nécessitent :
+        - Plans techniques professionnels
+        - Conformité aux codes du bâtiment
+        - Aide pour obtenir les permis
+        - Solutions économiques et efficaces
+        
+        #### 📐 Types de projets acceptés
+        
+        **Résidentiel :**
+        - Agrandissements et rénovations
+        - Chalets et résidences secondaires
+        - Garages détachés
+        - Cabanons et remises
+        
+        **Commercial léger :**
+        - Petits commerces et bureaux
+        - Ateliers et garages commerciaux
+        - Entrepôts de petite taille
+        
+        #### 🔧 Services inclus
+        
+        **Plans de base :**
+        - Plan d'implantation sur le terrain
+        - Plan de fondation avec détails
+        - Plan de charpente structurale
+        - Conformité codes du bâtiment
+        
+        **Services optionnels :**
+        - Plan électrique (+15% du prix)
+        - Plan de plomberie (+12% du prix)
+        - Modélisation 3D (+800$)
+        - Visite de terrain (+350$)
+        - Révisions multiples (+400$)
+        
+        #### 💰 Tarification
+        
+        **Prix de base selon superficie :**
+        - Jusqu'à 1,000 pi² : À partir de 2,500$
+        - 1,001 à 2,500 pi² : À partir de 3,500$
+        - 2,501 à 4,000 pi² : À partir de 4,500$
+        - 4,001 à 6,000 pi² : À partir de 6,000$
+        
+        *Prix final calculé selon superficie, services et options choisis*
+        
+        #### ⏱️ Délais typiques
+        
+        - **Plans préliminaires :** 1-2 semaines
+        - **Plans complets :** 2-4 semaines
+        - **Projets urgents :** Sur demande (+25%)
+        
+        #### 🏛️ Différence avec Service d'Architecture
+        
+        | Critère | Technologue | Architecte |
+        |---------|-------------|------------|
+        | **Superficie** | ≤ 6,000 pi² | > 6,000 pi² |
+        | **Professionnel** | Technologue | Architecte OAQ |
+        | **Prix** | Plus économique | Plus élevé |
+        | **Complexité** | Projets standards | Projets complexes |
+        | **Légal** | Suffisant pour permis | Obligatoire >6,000 pi² |
+        
+        #### 📞 Support et suivi
+        
+        - Consultation gratuite pour évaluer votre projet
+        - Suivi personnalisé tout au long du processus
+        - Support pour démarches de permis
+        - Révisions incluses selon forfait
+        
+        #### 🎯 Prochaines étapes
+        
+        1. **Évaluez votre projet** : Superficie ≤ 6,000 pi² ?
+        2. **Rassemblez vos documents** : Certificat localisation, photos, idées
+        3. **Remplissez le formulaire** : Onglet "Nouvelle demande"
+        4. **Recevez votre devis** : Confirmation sous 24-48h
+        5. **Démarrage des plans** : Après acceptation du devis
+        """)
+
+def creer_demande_architecture(demande_data: Dict) -> str:
+    """Crée une nouvelle demande de plans d'architecture"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Générer un numéro de référence unique
+        numero_reference = f"SEAOP-ARCH-{datetime.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        
+        # Calculer le prix estimé basé sur la superficie
+        superficie = float(demande_data.get('superficie_batiment', 0))
+        if superficie < 10000:
+            prix_base = 15000
+            prix_par_pi2 = 1.50
+        elif superficie < 25000:
+            prix_base = 25000
+            prix_par_pi2 = 1.25
+        elif superficie < 50000:
+            prix_base = 40000
+            prix_par_pi2 = 1.00
+        else:
+            prix_base = 60000
+            prix_par_pi2 = 0.85
+        
+        prix_estime = prix_base + (superficie * prix_par_pi2)
+        
+        # Services inclus
+        services_inclus = []
+        if demande_data.get('inclure_structure'):
+            services_inclus.append('structure')
+            prix_estime += superficie * 0.25
+        if demande_data.get('inclure_mecanique'):
+            services_inclus.append('mecanique')
+            prix_estime += superficie * 0.20
+        if demande_data.get('inclure_electrique'):
+            services_inclus.append('electrique')
+            prix_estime += superficie * 0.15
+        if demande_data.get('inclure_civil'):
+            services_inclus.append('civil')
+            prix_estime += superficie * 0.10
+        
+        services_str = ','.join(services_inclus) if services_inclus else ''
+        
+        cursor.execute('''
+            INSERT INTO demandes_architecture (
+                nom_client, email_client, telephone_client, adresse_projet,
+                ville, code_postal, type_batiment, usage_batiment,
+                superficie_terrain, superficie_batiment, nombre_etages,
+                nombre_logements, type_construction, style_architectural,
+                contraintes_terrain, exigences_speciales, plans_requis,
+                services_inclus, besoin_3d, besoin_permis,
+                certificat_localisation, photos_terrain, croquis_client,
+                budget_construction, budget_architecture, date_debut_souhaite,
+                date_livraison_plans, niveau_urgence, prix_service,
+                modalite_paiement, numero_reference
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            demande_data['nom_client'],
+            demande_data['email_client'],
+            demande_data['telephone_client'],
+            demande_data['adresse_projet'],
+            demande_data['ville'],
+            demande_data['code_postal'],
+            demande_data['type_batiment'],
+            demande_data['usage_batiment'],
+            demande_data.get('superficie_terrain'),
+            demande_data['superficie_batiment'],
+            demande_data.get('nombre_etages', 1),
+            demande_data.get('nombre_logements'),
+            demande_data['type_construction'],
+            demande_data.get('style_architectural', ''),
+            demande_data.get('contraintes_terrain', ''),
+            demande_data.get('exigences_speciales', ''),
+            demande_data['plans_requis'],
+            services_str,
+            1 if demande_data.get('besoin_3d') else 0,
+            1 if demande_data.get('besoin_permis', True) else 0,
+            demande_data.get('certificat_localisation', ''),
+            demande_data.get('photos_terrain', ''),
+            demande_data.get('croquis_client', ''),
+            demande_data.get('budget_construction', ''),
+            demande_data.get('budget_architecture', ''),
+            str(demande_data.get('date_debut_souhaite', '')),
+            str(demande_data.get('date_livraison_plans', '')),
+            demande_data.get('niveau_urgence', 'normal'),
+            prix_estime,
+            demande_data.get('modalite_paiement', 'forfait'),
+            numero_reference
+        ))
+        
+        demande_id = cursor.lastrowid
+        
+        # Créer une notification admin
+        cursor.execute('''
+            INSERT INTO notifications (
+                utilisateur_type, utilisateur_id, type_notification,
+                titre, message, lien_id
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            'admin', 0, 'nouvelle_demande_architecture',
+            'Nouvelle demande d\'architecture',
+            f'{demande_data["nom_client"]} - {demande_data["type_batiment"]} de {superficie:,.0f} pi2',
+            demande_id
+        ))
+        
+        conn.commit()
+        return numero_reference
+        
+    except Exception as e:
+        print(f"Erreur lors de la création de la demande d'architecture: {e}")
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+def get_demandes_architecture_client(email_client: str) -> List[Dict]:
+    """Récupère les demandes d'architecture d'un client"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, type_batiment, usage_batiment, superficie_batiment,
+               ville, prix_service, statut, date_demande, numero_reference,
+               date_livraison_plans, pourcentage_complete, plans_finaux
+        FROM demandes_architecture
+        WHERE email_client = ?
+        ORDER BY date_demande DESC
+    ''', (email_client,))
+    
+    demandes = []
+    for row in cursor.fetchall():
+        demandes.append({
+            'id': row[0],
+            'type_batiment': row[1],
+            'usage_batiment': row[2],
+            'superficie_batiment': row[3],
+            'ville': row[4],
+            'prix_service': row[5],
+            'statut': row[6],
+            'date_demande': row[7],
+            'numero_reference': row[8],
+            'date_livraison_plans': row[9],
+            'pourcentage_complete': row[10],
+            'plans_finaux': row[11]
+        })
+    
+    conn.close()
+    return demandes
+
+def encoder_fichiers_architecture(fichiers_uploades: list) -> str:
+    """Encode une liste de fichiers en base64 pour stockage"""
+    if not fichiers_uploades:
+        return ""
+    
+    fichiers_encodes = []
+    
+    for fichier in fichiers_uploades:
+        try:
+            contenu = fichier.read()
+            contenu_b64 = base64.b64encode(contenu).decode('utf-8')
+            fichiers_encodes.append(f"{fichier.name}:{contenu_b64}")
+        except Exception as e:
+            print(f"Erreur lors de l'encodage de {fichier.name}: {e}")
+    
+    return ','.join(fichiers_encodes)
+
+def page_service_architecture():
+    """Page du service d'architecture pour projets > 6000 pi²"""
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1>🏛️ Service d'Architecture Professionnelle</h1>
+        <p>Plans d'architecte pour projets de grande envergure (> 6,000 pi²)</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Onglets pour client et consultation
+    tab1, tab2, tab3 = st.tabs(["📐 Nouvelle demande", "📋 Mes demandes", "ℹ️ Informations"])
+    
+    with tab1:
+        st.markdown("""
+        #### Obtenez des plans d'architecte professionnels
+        
+        **Service complet incluant :**
+        - Plans d'architecture scellés par architecte OAQ
+        - Conformité au Code National du Bâtiment
+        - Aide pour permis de construction
+        - Modélisation 3D (optionnel)
+        - Coordination avec ingénieurs (structure, mécanique, électrique)
+        """)
+        
+        # Vérification de la superficie
+        st.warning("""
+        ⚠️ **Important** : Ce service est **obligatoire** pour les projets de plus de 6,000 pi² 
+        selon la réglementation québécoise. Un architecte membre de l'OAQ doit signer les plans.
+        """)
+        
+        with st.form("formulaire_architecture"):
+            # Section 1: Informations client
+            st.markdown("### 1️⃣ Vos informations")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                nom_client = st.text_input("Nom complet ou entreprise *", placeholder="Corporation ABC Inc.")
+                telephone = st.text_input("Téléphone *", placeholder="514-555-1234")
+                ville = st.text_input("Ville du projet *", placeholder="Montréal")
+            
+            with col2:
+                email = st.text_input("Email *", placeholder="contact@entreprise.com")
+                adresse_projet = st.text_input("Adresse du projet *", placeholder="1234 Rue Principale")
+                code_postal = st.text_input("Code postal *", placeholder="H1A 1A1")
+            
+            # Section 2: Détails du projet
+            st.markdown("### 2️⃣ Détails du projet architectural")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                type_batiment = st.selectbox(
+                    "Type de bâtiment *",
+                    ["", "résidentiel", "commercial", "industriel", "institutionnel", "mixte"]
+                )
+                
+                superficie_batiment = st.number_input(
+                    "Superficie totale du bâtiment (pi²) *",
+                    min_value=6000,
+                    value=6000,
+                    step=100,
+                    help="Minimum 6,000 pi² pour ce service"
+                )
+                
+                nombre_etages = st.number_input(
+                    "Nombre d'étages",
+                    min_value=1,
+                    max_value=50,
+                    value=1
+                )
+                
+                if type_batiment == "résidentiel":
+                    nombre_logements = st.number_input(
+                        "Nombre de logements",
+                        min_value=1,
+                        value=1
+                    )
+                else:
+                    nombre_logements = None
+            
+            with col2:
+                type_construction = st.selectbox(
+                    "Type de construction *",
+                    ["", "nouvelle", "agrandissement", "renovation_majeure"]
+                )
+                
+                superficie_terrain = st.number_input(
+                    "Superficie du terrain (pi²)",
+                    min_value=0,
+                    value=0,
+                    step=100,
+                    help="Laissez 0 si non applicable"
+                )
+                
+                style_architectural = st.selectbox(
+                    "Style architectural souhaité",
+                    ["", "moderne", "contemporain", "traditionnel", "industriel", "minimaliste", "autre"]
+                )
+            
+            usage_batiment = st.text_area(
+                "Usage prévu du bâtiment *",
+                placeholder="Ex: Immeuble de 24 condos avec stationnement souterrain et espaces commerciaux au RDC",
+                height=100
+            )
+            
+            # Section 3: Spécifications techniques
+            st.markdown("### 3️⃣ Spécifications et contraintes")
+            
+            contraintes_terrain = st.text_area(
+                "Contraintes du terrain",
+                placeholder="Ex: Terrain en pente, servitudes, zone inondable, proximité d'un cours d'eau...",
+                height=80
+            )
+            
+            exigences_speciales = st.text_area(
+                "Exigences spéciales",
+                placeholder="Ex: Certification LEED, accessibilité universelle, insonorisation supérieure...",
+                height=80
+            )
+            
+            # Section 4: Services requis
+            st.markdown("### 4️⃣ Services requis")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                plans_requis = st.selectbox(
+                    "Type de plans requis *",
+                    ["", "preliminaire", "concept", "execution", "complet"],
+                    help="Préliminaire: esquisse, Concept: 30%, Exécution: 100%, Complet: tous les plans"
+                )
+                
+                besoin_3d = st.checkbox("Modélisation 3D requise", value=False)
+                besoin_permis = st.checkbox("Aide pour permis de construction", value=True)
+            
+            with col2:
+                st.markdown("**Services d'ingénierie additionnels:**")
+                inclure_structure = st.checkbox("Structure", help="+0.25$/pi²")
+                inclure_mecanique = st.checkbox("Mécanique (CVAC, plomberie)", help="+0.20$/pi²")
+                inclure_electrique = st.checkbox("Électrique", help="+0.15$/pi²")
+                inclure_civil = st.checkbox("Civil (drainage, égouts)", help="+0.10$/pi²")
+            
+            # Section 5: Budget et délais
+            st.markdown("### 5️⃣ Budget et échéancier")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                budget_construction = st.selectbox(
+                    "Budget de construction estimé",
+                    ["", "Moins de 1M$", "1M$ - 5M$", "5M$ - 10M$", 
+                     "10M$ - 25M$", "25M$ - 50M$", "Plus de 50M$"]
+                )
+                
+                date_debut_souhaite = st.date_input(
+                    "Date de début de construction souhaitée",
+                    min_value=datetime.date.today() + datetime.timedelta(days=60),
+                    value=datetime.date.today() + datetime.timedelta(days=120)
+                )
+            
+            with col2:
+                budget_architecture = st.selectbox(
+                    "Budget pour services d'architecture",
+                    ["", "À déterminer", "50k$ - 100k$", "100k$ - 250k$", 
+                     "250k$ - 500k$", "500k$ - 1M$", "Plus de 1M$"]
+                )
+                
+                date_livraison_plans = st.date_input(
+                    "Date de livraison des plans souhaitée",
+                    min_value=datetime.date.today() + datetime.timedelta(days=30),
+                    value=datetime.date.today() + datetime.timedelta(days=60)
+                )
+            
+            niveau_urgence = st.selectbox(
+                "Niveau d'urgence",
+                ["normal", "faible", "eleve", "critique"],
+                format_func=lambda x: {
+                    'faible': '🟢 Faible - Délai flexible',
+                    'normal': '🟡 Normal - Délai standard',
+                    'eleve': '🟠 Élevé - Prioritaire',
+                    'critique': '🔴 Critique - Très urgent'
+                }[x]
+            )
+            
+            # Section 6: Documents
+            st.markdown("### 6️⃣ Documents à fournir")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                certificat = st.file_uploader(
+                    "Certificat de localisation",
+                    type=['pdf', 'jpg', 'png'],
+                    help="Document du terrain existant"
+                )
+            
+            with col2:
+                photos = st.file_uploader(
+                    "Photos du terrain/bâtiment",
+                    type=['jpg', 'png', 'jpeg'],
+                    accept_multiple_files=True,
+                    help="Photos actuelles du site"
+                )
+            
+            with col3:
+                croquis = st.file_uploader(
+                    "Croquis ou esquisses",
+                    type=['pdf', 'jpg', 'png', 'dwg'],
+                    accept_multiple_files=True,
+                    help="Vos idées préliminaires"
+                )
+            
+            # Estimation du prix
+            st.markdown("### 💰 Estimation du coût")
+            
+            if superficie_batiment > 0:
+                # Calcul estimé
+                if superficie_batiment < 10000:
+                    prix_base = 15000
+                    prix_pi2 = 1.50
+                elif superficie_batiment < 25000:
+                    prix_base = 25000
+                    prix_pi2 = 1.25
+                elif superficie_batiment < 50000:
+                    prix_base = 40000
+                    prix_pi2 = 1.00
+                else:
+                    prix_base = 60000
+                    prix_pi2 = 0.85
+                
+                prix_estime = prix_base + (superficie_batiment * prix_pi2)
+                
+                # Ajouts pour services
+                if inclure_structure:
+                    prix_estime += superficie_batiment * 0.25
+                if inclure_mecanique:
+                    prix_estime += superficie_batiment * 0.20
+                if inclure_electrique:
+                    prix_estime += superficie_batiment * 0.15
+                if inclure_civil:
+                    prix_estime += superficie_batiment * 0.10
+                
+                st.info(f"""
+                **Estimation préliminaire : {prix_estime:,.2f}$**
+                
+                Cette estimation inclut:
+                - Plans d'architecture de base : {prix_base:,.2f}$
+                - Superficie ({superficie_batiment:,.0f} pi² × {prix_pi2}$/pi²) : {(superficie_batiment * prix_pi2):,.2f}$
+                {f"- Services de structure : {(superficie_batiment * 0.25):,.2f}$" if inclure_structure else ""}
+                {f"- Services mécaniques : {(superficie_batiment * 0.20):,.2f}$" if inclure_mecanique else ""}
+                {f"- Services électriques : {(superficie_batiment * 0.15):,.2f}$" if inclure_electrique else ""}
+                {f"- Services civils : {(superficie_batiment * 0.10):,.2f}$" if inclure_civil else ""}
+                
+                *Prix final sujet à analyse détaillée du projet*
+                """)
+            
+            # Bouton de soumission
+            submitted = st.form_submit_button("📤 Soumettre la demande", type="primary")
+            
+            if submitted:
+                # Validation
+                if not all([nom_client, email, telephone, adresse_projet, ville, code_postal,
+                           type_batiment, type_construction, usage_batiment, plans_requis]):
+                    st.error("❌ Veuillez remplir tous les champs obligatoires (*)")
+                elif superficie_batiment < 6000:
+                    st.error("❌ La superficie doit être d'au moins 6,000 pi²")
+                else:
+                    # Préparer les données
+                    demande_data = {
+                        'nom_client': nom_client,
+                        'email_client': email,
+                        'telephone_client': telephone,
+                        'adresse_projet': adresse_projet,
+                        'ville': ville,
+                        'code_postal': code_postal,
+                        'type_batiment': type_batiment,
+                        'usage_batiment': usage_batiment,
+                        'superficie_terrain': superficie_terrain if superficie_terrain > 0 else None,
+                        'superficie_batiment': superficie_batiment,
+                        'nombre_etages': nombre_etages,
+                        'nombre_logements': nombre_logements,
+                        'type_construction': type_construction,
+                        'style_architectural': style_architectural,
+                        'contraintes_terrain': contraintes_terrain,
+                        'exigences_speciales': exigences_speciales,
+                        'plans_requis': plans_requis,
+                        'inclure_structure': inclure_structure,
+                        'inclure_mecanique': inclure_mecanique,
+                        'inclure_electrique': inclure_electrique,
+                        'inclure_civil': inclure_civil,
+                        'besoin_3d': besoin_3d,
+                        'besoin_permis': besoin_permis,
+                        'budget_construction': budget_construction,
+                        'budget_architecture': budget_architecture,
+                        'date_debut_souhaite': date_debut_souhaite,
+                        'date_livraison_plans': date_livraison_plans,
+                        'niveau_urgence': niveau_urgence,
+                        'modalite_paiement': 'forfait'
+                    }
+                    
+                    # Encoder les fichiers
+                    if certificat:
+                        demande_data['certificat_localisation'] = encoder_fichiers_architecture([certificat])
+                    if photos:
+                        demande_data['photos_terrain'] = encoder_fichiers_architecture(photos)
+                    if croquis:
+                        demande_data['croquis_client'] = encoder_fichiers_architecture(croquis)
+                    
+                    # Créer la demande
+                    numero_ref = creer_demande_architecture(demande_data)
+                    
+                    if numero_ref:
+                        st.success(f"""
+                        ✅ **Demande créée avec succès!**
+                        
+                        **Numéro de référence : {numero_ref}**
+                        
+                        Vous recevrez une réponse dans les 48 heures ouvrables.
+                        
+                        **Prochaines étapes:**
+                        1. Analyse de votre demande par notre équipe
+                        2. Contact d'un architecte OAQ pour validation
+                        3. Proposition détaillée avec échéancier
+                        4. Début des plans après acceptation
+                        """)
+                        
+                        st.balloons()
+                    else:
+                        st.error("❌ Erreur lors de la création de la demande. Veuillez réessayer.")
+    
+    with tab2:
+        st.markdown("### 📋 Suivi de vos demandes d'architecture")
+        
+        email_consultation = st.text_input(
+            "Entrez votre email pour consulter vos demandes",
+            placeholder="contact@entreprise.com"
+        )
+        
+        if st.button("🔍 Rechercher mes demandes"):
+            if email_consultation:
+                demandes = get_demandes_architecture_client(email_consultation)
+                
+                if demandes:
+                    st.success(f"✅ {len(demandes)} demande(s) trouvée(s)")
+                    
+                    for demande in demandes:
+                        with st.expander(f"📐 {demande['numero_reference']} - {demande['type_batiment'].title()}"):
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.markdown(f"**Type:** {demande['type_batiment'].title()}")
+                                st.markdown(f"**Superficie:** {demande['superficie_batiment']:,.0f} pi²")
+                                st.markdown(f"**Ville:** {demande['ville']}")
+                            
+                            with col2:
+                                statut_emoji = {
+                                    'recue': '📨', 'en_analyse': '🔍', 'acceptee': '✅',
+                                    'en_cours': '📐', 'revision': '📝', 'approuvee': '👍',
+                                    'livree': '📦', 'terminee': '✔️'
+                                }.get(demande['statut'], '📋')
+                                
+                                st.markdown(f"**Statut:** {statut_emoji} {demande['statut'].replace('_', ' ').title()}")
+                                st.markdown(f"**Prix:** {demande['prix_service']:,.2f}$")
+                                if demande['pourcentage_complete']:
+                                    st.progress(demande['pourcentage_complete'] / 100)
+                                    st.caption(f"Progression: {demande['pourcentage_complete']}%")
+                            
+                            with col3:
+                                st.markdown(f"**Date demande:** {demande['date_demande'][:10] if demande['date_demande'] else 'N/A'}")
+                                st.markdown(f"**Livraison prévue:** {demande['date_livraison_plans'] if demande['date_livraison_plans'] else 'À déterminer'}")
+                            
+                            st.markdown("---")
+                            st.markdown(f"**Usage:** {demande['usage_batiment']}")
+                            
+                            # Téléchargement des plans si disponibles
+                            if demande['plans_finaux']:
+                                st.markdown("### 📥 Documents disponibles")
+                                st.download_button(
+                                    "⬇️ Télécharger les plans finaux",
+                                    data=demande['plans_finaux'],
+                                    file_name=f"Plans_{demande['numero_reference']}.pdf",
+                                    mime="application/pdf"
+                                )
+                else:
+                    st.info("❌ Aucune demande trouvée pour cet email")
+            else:
+                st.warning("⚠️ Veuillez entrer votre email")
+    
+    with tab3:
+        st.markdown("""
+        ### ℹ️ Informations sur le service d'architecture
+        
+        #### 📏 Quand un architecte est-il obligatoire au Québec?
+        
+        Selon la Loi sur les architectes du Québec, un architecte membre de l'OAQ est **obligatoire** pour:
+        
+        - **Bâtiments publics** : Toute superficie
+        - **Édifices à bureaux** : Plus de 300 m² (3,230 pi²) par étage
+        - **Commerces** : Plus de 300 m² (3,230 pi²) par étage
+        - **Industries** : Plus de 300 m² (3,230 pi²) par étage
+        - **Habitations** : 5 logements et plus OU plus de 600 m² (6,460 pi²) total
+        
+        #### 💰 Structure de prix typique
+        
+        | Superficie | Prix de base | Prix/pi² | Services inclus |
+        |------------|--------------|----------|-----------------|
+        | 6,000 - 10,000 pi² | 15,000$ | 1.50$ | Plans de base |
+        | 10,000 - 25,000 pi² | 25,000$ | 1.25$ | Plans détaillés |
+        | 25,000 - 50,000 pi² | 40,000$ | 1.00$ | Coordination complète |
+        | 50,000 pi² et + | 60,000$ | 0.85$ | Gestion de projet |
+        
+        **Services additionnels:**
+        - Structure : +0.25$/pi²
+        - Mécanique : +0.20$/pi²
+        - Électrique : +0.15$/pi²
+        - Civil : +0.10$/pi²
+        
+        #### 📋 Documents livrables
+        
+        **Plans préliminaires (30%):**
+        - Plan d'implantation
+        - Plans d'étage
+        - Élévations
+        - Coupes principales
+        
+        **Plans d'exécution (100%):**
+        - Plans architecturaux complets
+        - Détails de construction
+        - Devis descriptif
+        - Bordereau des finis
+        - Plans pour permis
+        
+        #### ⏱️ Délais typiques
+        
+        - **Analyse initiale** : 2-3 jours ouvrables
+        - **Plans préliminaires** : 2-3 semaines
+        - **Plans d'exécution** : 4-8 semaines
+        - **Révisions** : 1-2 semaines
+        - **Approbation finale** : 3-5 jours
+        
+        #### 📞 Support
+        
+        Pour toute question sur le service d'architecture:
+        - 📧 architecture@seaop.ca
+        - 📞 1-800-SEAOP-QC
+        - 💬 Chat en direct disponible
+        """)
+
+# === FONCTIONS POUR SERVICE D'INGÉNIEUR EN STRUCTURE ===
+
+def creer_demande_ingenieur(demande_data: Dict) -> str:
+    """Crée une nouvelle demande de services d'ingénieur en structure"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Générer un numéro de référence unique
+        numero_reference = f"SEAOP-ING-{datetime.datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        
+        # Calculer le prix estimé basé sur le type et la complexité
+        superficie = float(demande_data.get('superficie_projet', 0))
+        type_structure = demande_data.get('type_structure', '')
+        services_demandes = demande_data.get('services_demandes', '')
+        
+        # Prix de base selon le type de structure
+        if type_structure == 'batiment':
+            if superficie < 5000:
+                prix_base = 8000
+                prix_pi2 = 0.80
+            elif superficie < 15000:
+                prix_base = 12000
+                prix_pi2 = 0.65
+            elif superficie < 50000:
+                prix_base = 18000
+                prix_pi2 = 0.50
+            else:
+                prix_base = 25000
+                prix_pi2 = 0.40
+        elif type_structure == 'industriel':
+            prix_base = 15000
+            prix_pi2 = 0.75
+        else:  # pont, fondation, autre
+            prix_base = 20000
+            prix_pi2 = 1.00
+        
+        prix_estime = prix_base + (superficie * prix_pi2)
+        
+        # Ajustements selon les services
+        if services_demandes == 'complet':
+            prix_estime *= 1.8  # Calculs + plans + surveillance
+        elif services_demandes == 'plans':
+            prix_estime *= 1.4  # Calculs + plans
+        # 'calculs' reste au prix de base
+        
+        # Analyses spécialisées
+        if demande_data.get('analyse_sismique'):
+            prix_estime += superficie * 0.15
+        if demande_data.get('analyse_dynamique'):
+            prix_estime += superficie * 0.20
+        if demande_data.get('modelisation_3d'):
+            prix_estime += superficie * 0.10
+        if demande_data.get('surveillance_chantier'):
+            prix_estime += superficie * 0.25
+        
+        cursor.execute('''
+            INSERT INTO demandes_ingenieur (
+                nom_client, email_client, telephone_client, adresse_projet,
+                ville, code_postal, type_structure, type_batiment,
+                usage_structure, superficie_projet, hauteur_structure,
+                nombre_etages, charge_exploitation, type_construction,
+                sol_porteur, zone_sismique, contraintes_particulieres,
+                normes_requises, services_demandes, calculs_requis,
+                plans_requis, surveillance_chantier, certification_requise,
+                plans_architecte, etude_sol, photos_existant,
+                budget_structure, budget_ingenieur, date_debut_souhaite,
+                date_livraison_souhaite, niveau_urgence, prix_service,
+                modalite_paiement, numero_reference, analyse_sismique,
+                analyse_vent, analyse_neige, analyse_dynamique,
+                modelisation_3d
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            demande_data['nom_client'],
+            demande_data['email_client'],
+            demande_data['telephone_client'],
+            demande_data['adresse_projet'],
+            demande_data['ville'],
+            demande_data['code_postal'],
+            demande_data['type_structure'],
+            demande_data.get('type_batiment', ''),
+            demande_data['usage_structure'],
+            demande_data.get('superficie_projet'),
+            demande_data.get('hauteur_structure'),
+            demande_data.get('nombre_etages', 1),
+            demande_data.get('charge_exploitation', ''),
+            demande_data.get('type_construction', ''),
+            demande_data.get('sol_porteur', ''),
+            demande_data.get('zone_sismique', ''),
+            demande_data.get('contraintes_particulieres', ''),
+            demande_data.get('normes_requises', ''),
+            demande_data['services_demandes'],
+            demande_data.get('calculs_requis', ''),
+            demande_data.get('plans_requis', ''),
+            1 if demande_data.get('surveillance_chantier') else 0,
+            1 if demande_data.get('certification_requise', True) else 0,
+            demande_data.get('plans_architecte', ''),
+            demande_data.get('etude_sol', ''),
+            demande_data.get('photos_existant', ''),
+            demande_data.get('budget_structure', ''),
+            demande_data.get('budget_ingenieur', ''),
+            str(demande_data.get('date_debut_souhaite', '')),
+            str(demande_data.get('date_livraison_souhaite', '')),
+            demande_data.get('niveau_urgence', 'normal'),
+            prix_estime,
+            demande_data.get('modalite_paiement', 'forfait'),
+            numero_reference,
+            1 if demande_data.get('analyse_sismique') else 0,
+            1 if demande_data.get('analyse_vent') else 0,
+            1 if demande_data.get('analyse_neige') else 0,
+            1 if demande_data.get('analyse_dynamique') else 0,
+            1 if demande_data.get('modelisation_3d') else 0
+        ))
+        
+        demande_id = cursor.lastrowid
+        
+        # Créer une notification admin
+        cursor.execute('''
+            INSERT INTO notifications (
+                utilisateur_type, utilisateur_id, type_notification,
+                titre, message, lien_id
+            ) VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            'admin', 0, 'nouvelle_demande_ingenieur',
+            'Nouvelle demande d\'ingenieur',
+            f'{demande_data["nom_client"]} - {demande_data["type_structure"]} {superficie:,.0f} pi2',
+            demande_id
+        ))
+        
+        conn.commit()
+        return numero_reference
+        
+    except Exception as e:
+        print(f"Erreur lors de la création de la demande d'ingénieur: {e}")
+        conn.rollback()
+        return None
+    finally:
+        conn.close()
+
+def get_demandes_ingenieur_client(email_client: str) -> List[Dict]:
+    """Récupère les demandes d'ingénieur d'un client"""
+    conn = sqlite3.connect(DATABASE_PATH)
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, type_structure, usage_structure, superficie_projet,
+               ville, prix_service, statut, date_demande, numero_reference,
+               date_livraison_souhaite, pourcentage_complete, calculs_structures,
+               plans_structures, services_demandes
+        FROM demandes_ingenieur
+        WHERE email_client = ?
+        ORDER BY date_demande DESC
+    ''', (email_client,))
+    
+    demandes = []
+    for row in cursor.fetchall():
+        demandes.append({
+            'id': row[0],
+            'type_structure': row[1],
+            'usage_structure': row[2],
+            'superficie_projet': row[3],
+            'ville': row[4],
+            'prix_service': row[5],
+            'statut': row[6],
+            'date_demande': row[7],
+            'numero_reference': row[8],
+            'date_livraison_souhaite': row[9],
+            'pourcentage_complete': row[10],
+            'calculs_structures': row[11],
+            'plans_structures': row[12],
+            'services_demandes': row[13]
+        })
+    
+    conn.close()
+    return demandes
+
+def encoder_fichiers_ingenieur(fichiers_uploades: list) -> str:
+    """Encode une liste de fichiers en base64 pour stockage"""
+    if not fichiers_uploades:
+        return ""
+    
+    fichiers_encodes = []
+    
+    for fichier in fichiers_uploades:
+        try:
+            contenu = fichier.read()
+            contenu_b64 = base64.b64encode(contenu).decode('utf-8')
+            fichiers_encodes.append(f"{fichier.name}:{contenu_b64}")
+        except Exception as e:
+            print(f"Erreur lors de l'encodage de {fichier.name}: {e}")
+    
+    return ','.join(fichiers_encodes)
+
+def page_service_ingenieur():
+    """Page du service d'ingénieur en structure"""
+    
+    st.markdown("""
+    <div class="main-header">
+        <h1>🔧 Service d'Ingénieur en Structure</h1>
+        <p>Calculs structuraux et plans d'ingénieur par professionnels OIQ</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Onglets pour client et consultation
+    tab1, tab2, tab3 = st.tabs(["🔧 Nouvelle demande", "📋 Mes demandes", "ℹ️ Informations"])
+    
+    with tab1:
+        st.markdown("""
+        #### Obtenez des services d'ingénieur en structure professionnels
+        
+        **Service complet incluant :**
+        - Calculs structuraux par ingénieur OIQ
+        - Plans de structure scellés
+        - Analyses sismique, vent et neige
+        - Surveillance de chantier (optionnel)
+        - Conformité CNB et normes CSA
+        """)
+        
+        st.info("""
+        💡 **Quand faire appel à un ingénieur en structure ?**
+        - Modifications structurales (murs porteurs, poutres)
+        - Nouvelles constructions
+        - Agrandissements et surélévations
+        - Structures industrielles et commerciales
+        - Problèmes structuraux existants
+        """)
+        
+        with st.form("formulaire_ingenieur"):
+            # Section 1: Informations client
+            st.markdown("### 1️⃣ Vos informations")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                nom_client = st.text_input("Nom complet ou entreprise *", placeholder="Entreprise ABC Inc.")
+                telephone = st.text_input("Téléphone *", placeholder="514-555-1234")
+                ville = st.text_input("Ville du projet *", placeholder="Montréal")
+            
+            with col2:
+                email = st.text_input("Email *", placeholder="contact@entreprise.com")
+                adresse_projet = st.text_input("Adresse du projet *", placeholder="1234 Rue Principale")
+                code_postal = st.text_input("Code postal *", placeholder="H1A 1A1")
+            
+            # Section 2: Détails du projet structural
+            st.markdown("### 2️⃣ Détails du projet structural")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                type_structure = st.selectbox(
+                    "Type de structure *",
+                    ["", "batiment", "fondation", "industriel", "pont", "autre"]
+                )
+                
+                if type_structure == "batiment":
+                    type_batiment = st.selectbox(
+                        "Type de bâtiment",
+                        ["", "résidentiel", "commercial", "industriel", "institutionnel"]
+                    )
+                else:
+                    type_batiment = ""
+                
+                superficie_projet = st.number_input(
+                    "Superficie du projet (pi²)",
+                    min_value=0,
+                    value=0,
+                    step=100,
+                    help="Superficie totale concernée par les travaux"
+                )
+                
+                hauteur_structure = st.number_input(
+                    "Hauteur de la structure (pi)",
+                    min_value=0,
+                    value=0,
+                    step=1,
+                    help="Hauteur totale ou hauteur libre"
+                )
+            
+            with col2:
+                nombre_etages = st.number_input(
+                    "Nombre d'étages",
+                    min_value=1,
+                    max_value=100,
+                    value=1
+                )
+                
+                type_construction = st.selectbox(
+                    "Type de construction/matériau *",
+                    ["", "beton", "acier", "bois", "mixte", "maconnerie"]
+                )
+                
+                charge_exploitation = st.text_input(
+                    "Charges d'exploitation",
+                    placeholder="Ex: 100 lb/pi², équipements lourds, etc.",
+                    help="Décrivez les charges prévues"
+                )
+                
+                zone_sismique = st.selectbox(
+                    "Zone sismique",
+                    ["", "Zone 1 - Faible", "Zone 2 - Modéré", "Zone 3 - Élevé", "Zone 4 - Très élevé", "Zone 5 - Extrême"]
+                )
+            
+            usage_structure = st.text_area(
+                "Description de l'usage et du projet *",
+                placeholder="Ex: Agrandissement résidentiel 2 étages avec sous-sol, retrait mur porteur, nouvelle poutre acier...",
+                height=100
+            )
+            
+            # Section 3: Conditions du site
+            st.markdown("### 3️⃣ Conditions du site et contraintes")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                sol_porteur = st.text_area(
+                    "Type de sol et capacité portante",
+                    placeholder="Ex: Argile compacte, capacité 3000 lb/pi² à 4 pi de profondeur",
+                    height=80
+                )
+                
+                contraintes_particulieres = st.text_area(
+                    "Contraintes particulières",
+                    placeholder="Ex: Proximité d'autres bâtiments, accès limité, vibrations, etc.",
+                    height=80
+                )
+            
+            with col2:
+                normes_requises = st.multiselect(
+                    "Normes et codes requis",
+                    ["CNB 2020", "CSA A23.3 (Béton)", "CSA S16 (Acier)", "CSA O86 (Bois)", 
+                     "AISC", "ACI", "Normes municipales"],
+                    default=["CNB 2020"]
+                )
+                
+                # Conversion pour stockage
+                normes_str = ', '.join(normes_requises) if normes_requises else ''
+            
+            # Section 4: Services requis
+            st.markdown("### 4️⃣ Services d'ingénierie requis")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                services_demandes = st.selectbox(
+                    "Type de services *",
+                    ["", "calculs", "plans", "complet"],
+                    format_func=lambda x: {
+                        'calculs': 'Calculs seulement',
+                        'plans': 'Calculs + Plans',
+                        'complet': 'Calculs + Plans + Surveillance'
+                    }.get(x, x),
+                    help="Calculs: notes de calcul, Plans: + plans structuraux, Complet: + surveillance chantier"
+                )
+                
+                calculs_requis = st.multiselect(
+                    "Types de calculs nécessaires",
+                    ["Fondations", "Poutres et colonnes", "Dalles", "Murs porteurs", 
+                     "Connexions", "Stabilité", "Analyse sismique", "Analyse vent"]
+                )
+                
+                plans_requis = st.multiselect(
+                    "Types de plans requis",
+                    ["Plan de fondation", "Plan de charpente", "Détails connexions", 
+                     "Coupes structurales", "Plan de coffrage", "Plan d'armature"]
+                )
+            
+            with col2:
+                surveillance_chantier = st.checkbox("Surveillance de chantier", value=False)
+                certification_requise = st.checkbox("Sceau d'ingénieur requis", value=True)
+                
+                st.markdown("**Analyses spécialisées :**")
+                analyse_sismique = st.checkbox("Analyse sismique", help="+15¢/pi²")
+                analyse_vent = st.checkbox("Analyse au vent", help="+10¢/pi²")
+                analyse_neige = st.checkbox("Analyse surcharge neige", help="+8¢/pi²")
+                analyse_dynamique = st.checkbox("Analyse dynamique", help="+20¢/pi²")
+                modelisation_3d = st.checkbox("Modélisation 3D", help="+10¢/pi²")
+            
+            # Section 5: Budget et échéancier
+            st.markdown("### 5️⃣ Budget et échéancier")
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                budget_structure = st.selectbox(
+                    "Budget pour travaux structuraux",
+                    ["", "Moins de 25k$", "25k$ - 75k$", "75k$ - 150k$", 
+                     "150k$ - 300k$", "300k$ - 500k$", "Plus de 500k$"]
+                )
+                
+                date_debut_souhaite = st.date_input(
+                    "Date de début souhaitée des travaux",
+                    min_value=datetime.date.today() + datetime.timedelta(days=14),
+                    value=datetime.date.today() + datetime.timedelta(days=60)
+                )
+            
+            with col2:
+                budget_ingenieur = st.selectbox(
+                    "Budget pour services d'ingénieur",
+                    ["", "À déterminer", "Moins de 5k$", "5k$ - 15k$", 
+                     "15k$ - 30k$", "30k$ - 50k$", "Plus de 50k$"]
+                )
+                
+                date_livraison_souhaite = st.date_input(
+                    "Date de livraison souhaitée",
+                    min_value=datetime.date.today() + datetime.timedelta(days=7),
+                    value=datetime.date.today() + datetime.timedelta(days=21)
+                )
+            
+            niveau_urgence = st.selectbox(
+                "Niveau d'urgence",
+                ["normal", "faible", "eleve", "critique"],
+                format_func=lambda x: {
+                    'faible': '🟢 Faible - Délai flexible',
+                    'normal': '🟡 Normal - Délai standard',
+                    'eleve': '🟠 Élevé - Prioritaire',
+                    'critique': '🔴 Critique - Très urgent'
+                }[x]
+            )
+            
+            # Section 6: Documents
+            st.markdown("### 6️⃣ Documents techniques")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                plans_architecte = st.file_uploader(
+                    "Plans d'architecte",
+                    type=['pdf', 'dwg', 'jpg', 'png'],
+                    accept_multiple_files=True,
+                    help="Plans existants du projet"
+                )
+            
+            with col2:
+                etude_sol = st.file_uploader(
+                    "Rapport géotechnique",
+                    type=['pdf', 'doc', 'docx'],
+                    help="Étude de sol si disponible"
+                )
+            
+            with col3:
+                photos_existant = st.file_uploader(
+                    "Photos de l'existant",
+                    type=['jpg', 'png', 'jpeg'],
+                    accept_multiple_files=True,
+                    help="Photos de la structure actuelle"
+                )
+            
+            # Estimation du prix
+            st.markdown("### 💰 Estimation du coût")
+            
+            if superficie_projet > 0 and type_structure and services_demandes:
+                # Calcul estimé
+                if type_structure == 'batiment':
+                    if superficie_projet < 5000:
+                        prix_base = 8000
+                        prix_pi2 = 0.80
+                    elif superficie_projet < 15000:
+                        prix_base = 12000
+                        prix_pi2 = 0.65
+                    elif superficie_projet < 50000:
+                        prix_base = 18000
+                        prix_pi2 = 0.50
+                    else:
+                        prix_base = 25000
+                        prix_pi2 = 0.40
+                elif type_structure == 'industriel':
+                    prix_base = 15000
+                    prix_pi2 = 0.75
+                else:
+                    prix_base = 20000
+                    prix_pi2 = 1.00
+                
+                prix_estime = prix_base + (superficie_projet * prix_pi2)
+                
+                # Ajustements selon les services
+                if services_demandes == 'complet':
+                    prix_estime *= 1.8
+                elif services_demandes == 'plans':
+                    prix_estime *= 1.4
+                
+                # Analyses spécialisées
+                if analyse_sismique:
+                    prix_estime += superficie_projet * 0.15
+                if analyse_dynamique:
+                    prix_estime += superficie_projet * 0.20
+                if modelisation_3d:
+                    prix_estime += superficie_projet * 0.10
+                if surveillance_chantier:
+                    prix_estime += superficie_projet * 0.25
+                
+                st.info(f"""
+                **Estimation préliminaire : {prix_estime:,.2f}$**
+                
+                Cette estimation inclut:
+                - Services de base : {prix_base:,.2f}$
+                - Superficie ({superficie_projet:,.0f} pi² × {prix_pi2}$/pi²) : {(superficie_projet * prix_pi2):,.2f}$
+                - Ajustement services ({services_demandes}) : {('x1.8' if services_demandes == 'complet' else 'x1.4' if services_demandes == 'plans' else 'x1.0')}
+                {f"- Analyse sismique : {(superficie_projet * 0.15):,.2f}$" if analyse_sismique else ""}
+                {f"- Analyse dynamique : {(superficie_projet * 0.20):,.2f}$" if analyse_dynamique else ""}
+                {f"- Modélisation 3D : {(superficie_projet * 0.10):,.2f}$" if modelisation_3d else ""}
+                {f"- Surveillance chantier : {(superficie_projet * 0.25):,.2f}$" if surveillance_chantier else ""}
+                
+                *Prix final sujet à analyse détaillée du projet*
+                """)
+            
+            # Bouton de soumission
+            submitted = st.form_submit_button("📤 Soumettre la demande", type="primary")
+            
+            if submitted:
+                # Validation
+                if not all([nom_client, email, telephone, adresse_projet, ville, code_postal,
+                           type_structure, type_construction, usage_structure, services_demandes]):
+                    st.error("❌ Veuillez remplir tous les champs obligatoires (*)")
+                else:
+                    # Préparer les données
+                    demande_data = {
+                        'nom_client': nom_client,
+                        'email_client': email,
+                        'telephone_client': telephone,
+                        'adresse_projet': adresse_projet,
+                        'ville': ville,
+                        'code_postal': code_postal,
+                        'type_structure': type_structure,
+                        'type_batiment': type_batiment,
+                        'usage_structure': usage_structure,
+                        'superficie_projet': superficie_projet if superficie_projet > 0 else None,
+                        'hauteur_structure': hauteur_structure if hauteur_structure > 0 else None,
+                        'nombre_etages': nombre_etages,
+                        'charge_exploitation': charge_exploitation,
+                        'type_construction': type_construction,
+                        'sol_porteur': sol_porteur,
+                        'zone_sismique': zone_sismique,
+                        'contraintes_particulieres': contraintes_particulieres,
+                        'normes_requises': normes_str,
+                        'services_demandes': services_demandes,
+                        'calculs_requis': ', '.join(calculs_requis) if calculs_requis else '',
+                        'plans_requis': ', '.join(plans_requis) if plans_requis else '',
+                        'surveillance_chantier': surveillance_chantier,
+                        'certification_requise': certification_requise,
+                        'budget_structure': budget_structure,
+                        'budget_ingenieur': budget_ingenieur,
+                        'date_debut_souhaite': date_debut_souhaite,
+                        'date_livraison_souhaite': date_livraison_souhaite,
+                        'niveau_urgence': niveau_urgence,
+                        'modalite_paiement': 'forfait',
+                        'analyse_sismique': analyse_sismique,
+                        'analyse_vent': analyse_vent,
+                        'analyse_neige': analyse_neige,
+                        'analyse_dynamique': analyse_dynamique,
+                        'modelisation_3d': modelisation_3d
+                    }
+                    
+                    # Encoder les fichiers
+                    if plans_architecte:
+                        demande_data['plans_architecte'] = encoder_fichiers_ingenieur(plans_architecte)
+                    if etude_sol:
+                        demande_data['etude_sol'] = encoder_fichiers_ingenieur([etude_sol])
+                    if photos_existant:
+                        demande_data['photos_existant'] = encoder_fichiers_ingenieur(photos_existant)
+                    
+                    # Créer la demande
+                    numero_ref = creer_demande_ingenieur(demande_data)
+                    
+                    if numero_ref:
+                        st.success(f"""
+                        ✅ **Demande créée avec succès!**
+                        
+                        **Numéro de référence : {numero_ref}**
+                        
+                        Vous recevrez une réponse dans les 24-48 heures ouvrables.
+                        
+                        **Prochaines étapes:**
+                        1. Analyse technique de votre demande
+                        2. Contact d'un ingénieur OIQ pour validation
+                        3. Proposition détaillée avec méthodologie
+                        4. Début des calculs après acceptation
+                        """)
+                        
+                        st.balloons()
+                    else:
+                        st.error("❌ Erreur lors de la création de la demande. Veuillez réessayer.")
+    
+    with tab2:
+        st.markdown("### 📋 Suivi de vos demandes d'ingénieur")
+        
+        email_consultation = st.text_input(
+            "Entrez votre email pour consulter vos demandes",
+            placeholder="contact@entreprise.com"
+        )
+        
+        if st.button("🔍 Rechercher mes demandes"):
+            if email_consultation:
+                demandes = get_demandes_ingenieur_client(email_consultation)
+                
+                if demandes:
+                    st.success(f"✅ {len(demandes)} demande(s) trouvée(s)")
+                    
+                    for demande in demandes:
+                        with st.expander(f"🔧 {demande['numero_reference']} - {demande['type_structure'].title()}"):
+                            col1, col2, col3 = st.columns(3)
+                            
+                            with col1:
+                                st.markdown(f"**Type:** {demande['type_structure'].title()}")
+                                if demande['superficie_projet']:
+                                    st.markdown(f"**Superficie:** {demande['superficie_projet']:,.0f} pi²")
+                                st.markdown(f"**Ville:** {demande['ville']}")
+                                st.markdown(f"**Services:** {demande['services_demandes'].title()}")
+                            
+                            with col2:
+                                statut_emoji = {
+                                    'recue': '📨', 'analyse': '🔍', 'acceptee': '✅',
+                                    'calculs': '🧮', 'plans': '📐', 'revision': '📝',
+                                    'terminee': '✔️'
+                                }.get(demande['statut'], '📋')
+                                
+                                st.markdown(f"**Statut:** {statut_emoji} {demande['statut'].replace('_', ' ').title()}")
+                                st.markdown(f"**Prix:** {demande['prix_service']:,.2f}$")
+                                if demande['pourcentage_complete']:
+                                    st.progress(demande['pourcentage_complete'] / 100)
+                                    st.caption(f"Progression: {demande['pourcentage_complete']}%")
+                            
+                            with col3:
+                                st.markdown(f"**Date demande:** {demande['date_demande'][:10] if demande['date_demande'] else 'N/A'}")
+                                st.markdown(f"**Livraison prévue:** {demande['date_livraison_souhaite'] if demande['date_livraison_souhaite'] else 'À déterminer'}")
+                            
+                            st.markdown("---")
+                            st.markdown(f"**Description:** {demande['usage_structure']}")
+                            
+                            # Téléchargement des documents si disponibles
+                            documents_disponibles = []
+                            if demande['calculs_structures']:
+                                documents_disponibles.append(("Calculs structuraux", demande['calculs_structures'], "Calculs"))
+                            if demande['plans_structures']:
+                                documents_disponibles.append(("Plans structuraux", demande['plans_structures'], "Plans"))
+                            
+                            if documents_disponibles:
+                                st.markdown("### 📥 Documents disponibles")
+                                for nom, contenu, type_doc in documents_disponibles:
+                                    st.download_button(
+                                        f"⬇️ Télécharger {nom}",
+                                        data=contenu,
+                                        file_name=f"{type_doc}_{demande['numero_reference']}.pdf",
+                                        mime="application/pdf"
+                                    )
+                else:
+                    st.info("❌ Aucune demande trouvée pour cet email")
+            else:
+                st.warning("⚠️ Veuillez entrer votre email")
+    
+    with tab3:
+        st.markdown("""
+        ### ℹ️ Informations sur le service d'ingénieur en structure
+        
+        #### 🔧 Quand faire appel à un ingénieur en structure au Québec?
+        
+        Un ingénieur en structure est **obligatoire** pour:
+        
+        - **Modifications structurales** : Retrait de murs porteurs, ouvertures dans dalles
+        - **Nouvelles constructions** : Calculs de charpente et fondations
+        - **Agrandissements** : Extensions, surélévations
+        - **Structures spécialisées** : Ponts, structures industrielles
+        - **Réparations majeures** : Renforcement, reprise en sous-œuvre
+        
+        #### 💰 Structure de prix typique
+        
+        | Type de projet | Prix de base | Prix/pi² | Services |
+        |----------------|--------------|----------|----------|
+        | Bâtiment < 5,000 pi² | 8,000$ | 0.80$ | Calculs de base |
+        | Bâtiment 5,000-15,000 pi² | 12,000$ | 0.65$ | Calculs détaillés |
+        | Bâtiment 15,000-50,000 pi² | 18,000$ | 0.50$ | Analyse complète |
+        | Bâtiment > 50,000 pi² | 25,000$ | 0.40$ | Gestion projet |
+        | Industriel | 15,000$ | 0.75$ | Spécialisé |
+        | Autre (pont, fondation) | 20,000$ | 1.00$ | Sur mesure |
+        
+        **Ajustements de services:**
+        - Calculs seulement : Prix de base
+        - Calculs + Plans : +40%
+        - Service complet + Surveillance : +80%
+        
+        **Analyses spécialisées:**
+        - Analyse sismique : +15¢/pi²
+        - Analyse dynamique : +20¢/pi²
+        - Modélisation 3D : +10¢/pi²
+        - Surveillance chantier : +25¢/pi²
+        
+        #### 📋 Livrables typiques
+        
+        **Calculs structuraux:**
+        - Note de calculs détaillée
+        - Vérifications CNB et normes CSA
+        - Recommandations techniques
+        
+        **Plans structuraux:**
+        - Plans de fondation
+        - Plans de charpente
+        - Détails de connexions
+        - Coupes et sections
+        
+        **Surveillance (optionnel):**
+        - Visites de chantier
+        - Vérification conformité
+        - Rapports d'avancement
+        
+        #### ⏱️ Délais typiques
+        
+        - **Projets simples** : 5-10 jours ouvrables
+        - **Projets moyens** : 2-3 semaines
+        - **Projets complexes** : 3-6 semaines
+        - **Révisions** : 3-5 jours ouvrables
+        
+        #### 📞 Support technique
+        
+        Pour toute question sur le service d'ingénieur:
+        - 📧 structure@seaop.ca
+        - 📞 1-800-SEAOP-QC
+        - 💬 Chat technique disponible
+        
+        #### 🏗️ Matériaux supportés
+        
+        - **Béton armé** : Dalles, poutres, colonnes, murs
+        - **Charpente acier** : Poutres IPE/HEA, connexions boulonnées/soudées
+        - **Charpente bois** : Bois d'œuvre, bois lamellé-collé, CLT
+        - **Maçonnerie** : Murs porteurs, linteaux, renforcements
+        - **Mixte** : Combinaisons de matériaux
+        """)
 
 if __name__ == "__main__":
     main()
