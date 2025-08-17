@@ -1898,6 +1898,7 @@ def main():
     <div class="main-header">
         <h1>🏛️ SEAOP</h1>
         <p>Système Électronique d'Appel d'Offres Public</p>
+        <p><strong>Le MARKETPLACE de la CONSTRUCTION au Québec</strong></p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -1938,6 +1939,16 @@ def main():
             page = "🔧 Service d'ingénieur"
         
         st.sidebar.markdown("---")
+        st.sidebar.markdown("### 💻 Logiciels professionnels")
+        
+        if st.sidebar.button("🧠 EXPERTS IA", use_container_width=True):
+            page = "🧠 EXPERTS IA"
+        if st.sidebar.button("📐 TAKEOFF AI", use_container_width=True):
+            page = "📐 TAKEOFF AI"
+        if st.sidebar.button("📊 ERP AI", use_container_width=True):
+            page = "📊 ERP AI"
+        
+        st.sidebar.markdown("---")
         st.sidebar.markdown("### ⚙️ Administration")
         
         if st.sidebar.button("⚙️ Panel d'administration", use_container_width=True):
@@ -1964,6 +1975,17 @@ def main():
         🏛️ **Architecture** : > 6,000 pi²  
         🔧 **Ingénierie** : Calculs structuraux  
         💰 **Estimation** : Évaluation de coûts
+        
+        **Logiciels professionnels :**
+        
+        🧠 **EXPERTS IA** : 60+ experts construction  
+        📐 **TAKEOFF AI** : Estimation automatique  
+        📊 **ERP AI** : Gestion de projets
+        
+        **Contact :**
+        
+        📧 sylvainleduc2000@gmail.com  
+        📞 514-820-1972
         """)
         
         # Footer de la sidebar
@@ -2011,95 +2033,6 @@ def main():
         
         st.markdown("---")
         
-        # Instructions de navigation
-        st.info("""
-        👈 **Utilisez le menu latéral gauche** pour naviguer entre les différentes sections :
-        
-        📋 **Gestion de projets** : Appels d'offres et espaces clients/entrepreneurs
-        🏗️ **Services professionnels** : Services d'expertise (estimation, plans, calculs)
-        ⚙️ **Administration** : Gestion et supervision
-        """)
-        
-        st.markdown("---")
-        st.markdown("**💻 Logiciels professionnels :**")
-        
-        # EXPERTS IA - Mise en avant principale
-        with st.expander("🧠 **EXPERTS IA** - 60+ Experts Construction", expanded=False):
-            st.markdown("""
-            **🏆 L'Assistant IA le Plus Avancé de la Construction Québécoise**
-            
-            ✨ **Fonctionnalités révolutionnaires :**
-            • **60+ profils d'experts** spécialisés (2,400+ années d'expérience)
-            • **Entrepreneur Général, Architecte, Électricien CMEQ, Plombier CMMTQ**
-            • **Assistant IA adaptatif** qui sélectionne l'expert optimal
-            • **Calculs techniques automatiques** (poutres, colonnes, linteaux)
-            • **Conformité RBQ/CCQ** automatique
-            
-            🎯 **Parfait pour vos appels d'offres SEAOP :**
-            • Validation technique de vos projets
-            • Estimations ultra-précises par expert
-            • Conseils réglementaires spécialisés
-            • Optimisation coûts et délais
-            """)
-            if st.button("🚀 **Accéder à EXPERTS IA**", key="experts_ai_main"):
-                st.markdown("**[→ Ouvrir EXPERTS IA](https://experts-ai.onrender.com/)**")
-        
-        # TAKEOFF AI - Complémentaire
-        with st.expander("📐 **TAKEOFF AI** - Estimation de Construction", expanded=False):
-            st.markdown("""
-            **🏗️ Système d'Estimation avec IA Claude**
-            
-            ✨ **Outils professionnels :**
-            • **Visualisation PDF** et annotation de plans
-            • **5 modes de mesure** (distance, surface, périmètre, angle)
-            • **Système d'accrochage intelligent** aux lignes
-            • **Catalogue produits** avec prix et dimensions
-            • **Export rapports** CSV, JSON, PDF
-            
-            💡 **Idéal pour les entrepreneurs SEAOP :**
-            • Mesures précises sur vos plans
-            • Calcul quantités de matériaux
-            • Soumissions plus compétitives
-            """)
-            if st.button("📐 **Accéder à TAKEOFF AI**", key="takeoff_ai_main"):
-                st.markdown("**[→ Ouvrir TAKEOFF AI](https://takeoff-ai.onrender.com/)**")
-        
-        # ERP AI - Gestion de projets construction
-        with st.expander("📊 **ERP AI** - Gestion de Projets Construction Québec", expanded=False):
-            st.markdown("""
-            **🏗️ ERP Spécialisé Construction avec 24 Étapes de Chantier**
-            
-            ✨ **Fonctionnalités construction québécoise :**
-            • **24 étapes de construction** (excavation → livraison)
-            • **Bons de Travail (BT)** avec traçabilité complète
-            • **TimeTracker chantier** temps réel
-            • **Multi-vues** : Dashboard, Kanban, Gantt, Calendrier
-            • **CRM construction** et gestion RH spécialisée
-            • **Inventaire matériaux** avec normes CSA/BNQ
-            • **Assistant IA Claude** pour expertise technique
-            
-            🎯 **Parfait pour projets attribués SEAOP :**
-            • Gestion complète de vos chantiers
-            • Suivi progression par étape construction
-            • Conformité RBQ/CCQ automatique
-            • Pointage employés et sous-traitants
-            • Livraison dans les délais contractuels
-            """)
-            st.info("""
-            💼 **Installation & Support ERP AI**
-            
-            Pour l'installation et la configuration personnalisée d'ERP AI :
-            
-            📧 **Email** : sylvainleduc2000@gmail.com  
-            📞 **Téléphone** : 514-820-1972
-            
-            *Sylvain Leduc - Expert ERP & Solutions Industrielles*
-            """)
-        
-        st.markdown("---")
-        st.markdown("**💡 Instructions :**")
-        st.markdown("1. Sélectionnez une option dans le menu ci-dessus")
-        st.markdown("2. La page se chargera automatiquement")
         
         if "accueil" in page.lower():
             st.session_state.page = 'accueil'
@@ -2117,6 +2050,12 @@ def main():
             st.session_state.page = 'service_architecture'
         elif "ingénieur" in page.lower() or "service d'ingénieur" in page.lower():
             st.session_state.page = 'service_ingenieur'
+        elif "experts ia" in page.lower():
+            st.session_state.page = 'experts_ia'
+        elif "takeoff ai" in page.lower():
+            st.session_state.page = 'takeoff_ai'
+        elif "erp ai" in page.lower():
+            st.session_state.page = 'erp_ai'
         elif "administration" in page.lower():
             st.session_state.page = 'admin'
     
@@ -2147,6 +2086,12 @@ def main():
         page_service_architecture()
     elif st.session_state.page == 'service_ingenieur':
         page_service_ingenieur()
+    elif st.session_state.page == 'experts_ia':
+        page_experts_ia()
+    elif st.session_state.page == 'takeoff_ai':
+        page_takeoff_ai()
+    elif st.session_state.page == 'erp_ai':
+        page_erp_ai()
     elif st.session_state.page == 'entrepreneur':
         page_espace_entrepreneur()
     elif st.session_state.page == 'admin':
@@ -7450,6 +7395,132 @@ def page_service_ingenieur():
         - **Maçonnerie** : Murs porteurs, linteaux, renforcements
         - **Mixte** : Combinaisons de matériaux
         """)
+
+# === PAGES POUR LOGICIELS PROFESSIONNELS ===
+
+def page_experts_ia():
+    """Page dédiée à EXPERTS IA"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>🧠 EXPERTS IA - 60+ Experts Construction</h1>
+        <p>L'Assistant IA le Plus Avancé de la Construction Québécoise</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    ## 🏆 Fonctionnalités révolutionnaires
+    
+    ✨ **60+ profils d'experts spécialisés** (2,400+ années d'expérience)
+    - **Entrepreneur Général, Architecte, Électricien CMEQ, Plombier CMMTQ**
+    - **Assistant IA adaptatif** qui sélectionne l'expert optimal
+    - **Calculs techniques automatiques** (poutres, colonnes, linteaux)
+    - **Conformité RBQ/CCQ** automatique
+    
+    ## 🎯 Parfait pour vos appels d'offres SEAOP
+    - Validation technique de vos projets
+    - Estimations ultra-précises par expert
+    - Conseils réglementaires spécialisés
+    - Optimisation coûts et délais
+    """)
+    
+    st.info("""
+    💼 **Installation & Support EXPERTS IA**
+    
+    Pour l'installation et la configuration personnalisée d'EXPERTS IA :
+    - 📧 **Email** : sylvainleduc2000@gmail.com
+    - 📱 **Téléphone** : 514-820-1972
+    - 💬 **Support 24/7** via l'application
+    """)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("🚀 **Accéder à EXPERTS IA**", "https://experts-ai.onrender.com/", use_container_width=True, type="primary")
+    with col2:
+        if st.button("📚 **Documentation**", use_container_width=True):
+            st.markdown("**[→ Guide d'utilisation](https://experts-ai.onrender.com/docs)**")
+
+def page_takeoff_ai():
+    """Page dédiée à TAKEOFF AI"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>📐 TAKEOFF AI - Estimation de Construction</h1>
+        <p>Calculs précis de matériaux et coûts</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    ## 🎯 Optimisé pour l'industrie québécoise
+    
+    ✨ **Calculs automatiques précis**
+    - **Matériaux** : Béton, acier, bois selon normes CSA/BNQ
+    - **Main-d'œuvre** : Tarifs CCQ actualisés
+    - **Équipements** : Location et utilisation optimisées
+    - **Conformité** : Codes du bâtiment québécois
+    
+    ## 🏗️ Fonctionnalités avancées
+    - Import plans PDF/DWG pour mesures automatiques
+    - Base de données prix matériaux temps réel
+    - Génération rapports détaillés
+    - Intégration avec SEAOP pour soumissions
+    """)
+    
+    st.info("""
+    💼 **Installation & Support TAKEOFF AI**
+    
+    Pour l'installation et la configuration personnalisée :
+    - 📧 **Email** : sylvainleduc2000@gmail.com
+    - 📱 **Téléphone** : 514-820-1972
+    - 💬 **Formation** personnalisée incluse
+    """)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("🚀 **Accéder à TAKEOFF AI**", "https://takeoff-ai.onrender.com/", use_container_width=True, type="primary")
+    with col2:
+        if st.button("📊 **Exemples d'estimations**", use_container_width=True):
+            st.markdown("**[→ Voir les démos](https://takeoff-ai.onrender.com/demo)**")
+
+def page_erp_ai():
+    """Page dédiée à ERP AI"""
+    st.markdown("""
+    <div class="main-header">
+        <h1>📊 ERP AI - Gestion de Projets Construction</h1>
+        <p>ERP Spécialisé Construction avec 24 Étapes de Chantier</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("""
+    ## 🏗️ Fonctionnalités construction québécoise
+    
+    ✨ **Gestion complète de chantier**
+    - **24 étapes de construction** (excavation → livraison)
+    - **Bons de Travail (BT)** avec traçabilité complète
+    - **TimeTracker chantier** temps réel
+    - **Multi-vues** : Dashboard, Kanban, Gantt, Calendrier
+    
+    ## 🎯 Parfait pour projets attribués SEAOP
+    - Gestion complète de vos chantiers
+    - Suivi progression par étape construction
+    - Conformité RBQ/CCQ automatique
+    - Pointage employés et sous-traitants
+    - Livraison dans les délais contractuels
+    
+    ## 🚀 Modules spécialisés
+    - **CRM construction** et gestion RH spécialisée
+    - **Inventaire matériaux** avec normes CSA/BNQ
+    - **Assistant IA Claude** pour expertise technique
+    """)
+    
+    st.info("""
+    💼 **Installation & Support ERP AI**
+    
+    Pour l'installation et la configuration personnalisée d'ERP AI :
+    - 📧 **Email** : sylvainleduc2000@gmail.com
+    - 📱 **Téléphone** : 514-820-1972
+    - 🏗️ **Formation** sur site incluse
+    - 💻 **Personnalisation** selon vos processus
+    """)
+    
 
 if __name__ == "__main__":
     main()
