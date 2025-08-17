@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from PIL import Image
 import io
 import base64
+from chatroom_functions import page_chat_room_public
 
 # Configuration du stockage persistant
 DATA_DIR = os.getenv('DATA_DIR', '.')  # Utilise le répertoire courant en développement
@@ -1949,6 +1950,12 @@ def main():
             page = "📊 ERP AI"
         
         st.sidebar.markdown("---")
+        st.sidebar.markdown("### 💬 Communauté")
+        
+        if st.sidebar.button("💬 Chat Room Public", use_container_width=True):
+            page = "💬 Chat Room"
+        
+        st.sidebar.markdown("---")
         st.sidebar.markdown("### ⚙️ Administration")
         
         if st.sidebar.button("⚙️ Panel d'administration", use_container_width=True):
@@ -2056,6 +2063,8 @@ def main():
             st.session_state.page = 'takeoff_ai'
         elif "erp ai" in page.lower():
             st.session_state.page = 'erp_ai'
+        elif "chat room" in page.lower():
+            st.session_state.page = 'chat_room'
         elif "administration" in page.lower():
             st.session_state.page = 'admin'
     
@@ -2092,6 +2101,8 @@ def main():
         page_takeoff_ai()
     elif st.session_state.page == 'erp_ai':
         page_erp_ai()
+    elif st.session_state.page == 'chat_room':
+        page_chat_room_public()
     elif st.session_state.page == 'entrepreneur':
         page_espace_entrepreneur()
     elif st.session_state.page == 'admin':
@@ -7508,7 +7519,7 @@ def page_erp_ai():
     ## 🚀 Modules spécialisés
     - **CRM construction** et gestion RH spécialisée
     - **Inventaire matériaux** avec normes CSA/BNQ
-    - **Assistant IA Claude** pour expertise technique
+    - **Assistant IA** pour la gestion de vos projets
     """)
     
     st.info("""
