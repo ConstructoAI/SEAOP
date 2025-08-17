@@ -1907,24 +1907,75 @@ def main():
     
     # Sidebar pour navigation
     with st.sidebar:
-        st.markdown("### 🏛️ SEAOP")
-        st.markdown("*Système Électronique d'Appel d'Offres Public*")
-        st.markdown("---")
+        # Navigation transformée en sidebar
+        st.sidebar.markdown("## 🏛️ SEAOP")
+        st.sidebar.markdown("*Système Électronique d'Appel d'Offres Public*")
+        st.sidebar.markdown("---")
         
-        st.markdown("**🧭 Navigation principale :**")
-        page = st.selectbox(
-            "Choisissez une section",
-            ["🏠 Accueil", 
-             "📝 Publier un appel d'offres", 
-             "📋 Mes appels d'offres",
-             "🏢 Espace Entrepreneurs",
-             "💰 Service d'estimation",
-             "📐 Service de technologue",
-             "🏛️ Service d'architecture",
-             "🔧 Service d'ingénieur",
-             "⚙️ Administration"],
-            index=0,
-            help="Sélectionnez la section où vous voulez aller"
+        # Section principale
+        st.sidebar.markdown("### 📋 Gestion de projets")
+        page = None
+        
+        if st.sidebar.button("🏠 Accueil", use_container_width=True):
+            page = "🏠 Accueil"
+        if st.sidebar.button("📝 Publier un appel d'offres", use_container_width=True):
+            page = "📝 Publier un appel d'offres"
+        if st.sidebar.button("📋 Mes appels d'offres", use_container_width=True):
+            page = "📋 Mes appels d'offres"
+        if st.sidebar.button("🏢 Espace Entrepreneurs", use_container_width=True):
+            page = "🏢 Espace Entrepreneurs"
+        
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 🏗️ Services professionnels")
+        
+        if st.sidebar.button("💰 Service d'estimation", use_container_width=True):
+            page = "💰 Service d'estimation"
+        if st.sidebar.button("📐 Service de technologue", use_container_width=True):
+            page = "📐 Service de technologue"
+        if st.sidebar.button("🏛️ Service d'architecture", use_container_width=True):
+            page = "🏛️ Service d'architecture"
+        if st.sidebar.button("🔧 Service d'ingénieur", use_container_width=True):
+            page = "🔧 Service d'ingénieur"
+        
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### ⚙️ Administration")
+        
+        if st.sidebar.button("⚙️ Panel d'administration", use_container_width=True):
+            page = "⚙️ Administration"
+        
+        # Garder la page actuelle si aucun bouton n'est cliqué
+        if page is None:
+            page = st.session_state.get('current_page', '🏠 Accueil')
+        else:
+            st.session_state.current_page = page
+        
+        # Afficher la page actuelle
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### 📍 Page actuelle")
+        st.sidebar.info(f"**{page}**")
+        
+        # Informations sur les services
+        st.sidebar.markdown("---")
+        st.sidebar.markdown("### ℹ️ À propos")
+        st.sidebar.markdown("""
+        **Services professionnels :**
+        
+        📐 **Technologue** : ≤ 6,000 pi²  
+        🏛️ **Architecture** : > 6,000 pi²  
+        🔧 **Ingénierie** : Calculs structuraux  
+        💰 **Estimation** : Évaluation de coûts
+        """)
+        
+        # Footer de la sidebar
+        st.sidebar.markdown("---")
+        st.sidebar.markdown(
+            """
+            <div style="text-align: center; font-size: 12px; color: #666;">
+                © 2025 SEAOP<br>
+                <em>Développé par Sylvain Leduc</em>
+            </div>
+            """, 
+            unsafe_allow_html=True
         )
         
         # Notifications de messages non lus et notifications générales
@@ -1950,8 +2001,27 @@ def main():
             if total_non_lus > 0 or notifs_non_lues > 0:
                 st.markdown("---")
         
+        # Titre principal maintenant que la navigation est dans sidebar
+        st.markdown("""
+        <div style="text-align: center; padding: 20px;">
+            <h1>🏛️ SEAOP - Système Électronique d'Appel d'Offres Public</h1>
+            <p style="font-size: 18px; color: #666;">Plateforme québécoise pour appels d'offres et services d'expertise en construction</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("---")
-        st.markdown("**🔗 Outils d'expertise :**")
+        
+        # Instructions de navigation
+        st.info("""
+        👈 **Utilisez le menu latéral gauche** pour naviguer entre les différentes sections :
+        
+        📋 **Gestion de projets** : Appels d'offres et espaces clients/entrepreneurs
+        🏗️ **Services professionnels** : Services d'expertise (estimation, plans, calculs)
+        ⚙️ **Administration** : Gestion et supervision
+        """)
+        
+        st.markdown("---")
+        st.markdown("**💻 Logiciels professionnels :**")
         
         # EXPERTS IA - Mise en avant principale
         with st.expander("🧠 **EXPERTS IA** - 60+ Experts Construction", expanded=False):
