@@ -7445,10 +7445,10 @@ def page_experts_ia():
     
     col1, col2 = st.columns(2)
     with col1:
-        st.link_button("🚀 **Accéder à EXPERTS IA**", "https://b2b.constructoai.ca/", use_container_width=True, type="primary")
+        st.link_button("🚀 **Accéder à EXPERTS IA**", "https://experts-ai.constructoai.ca/", use_container_width=True, type="primary")
     with col2:
         if st.button("📚 **Documentation**", use_container_width=True):
-            st.markdown("**[→ Guide d'utilisation](https://b2b.constructoai.ca/docs)**")
+            st.markdown("**[→ Guide d'utilisation](https://experts-ai.constructoai.ca/docs)**")
 
 def page_takeoff_ai():
     """Page dédiée à TAKEOFF AI"""
