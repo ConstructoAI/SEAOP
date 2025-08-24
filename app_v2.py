@@ -7532,6 +7532,13 @@ def page_erp_ai():
     - 💻 **Personnalisation** selon vos processus
     """)
     
+    col1, col2 = st.columns(2)
+    with col1:
+        st.link_button("🚀 **Accéder à ERP AI**", "https://erp-ai.constructoai.ca/", use_container_width=True, type="primary")
+    with col2:
+        if st.button("📚 **Documentation**", use_container_width=True):
+            st.markdown("**[→ Guide d'utilisation](https://erp-ai.constructoai.ca/docs)**")
+    
 
 if __name__ == "__main__":
     main()
